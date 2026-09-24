@@ -713,6 +713,13 @@ namespace N3Lite
         /// while moving and the cached forward while stopped. With <see cref="Direction"/> negative the
         /// body faces the negated forward, so a backpedalling character keeps facing the way it came;
         /// <see cref="SavedRotation"/> keeps the un-negated one.
+        ///
+        /// <para>
+        /// The cached forward is the one <see cref="Quat.LookRotation(ref Vec3, ref Vec3)"/> leaves
+        /// behind — projected and <b>unit length</b> — not the velocity it was given. Caching the raw
+        /// velocity scales the drive force by the speed below 1 m/s, which made a start from rest
+        /// (backpedalling most of all) ramp up far slower than stock.
+        /// </para>
         /// </summary>
         protected bool UpdateOrientation(Vec3 surfaceNormal)
         {
@@ -726,13 +733,13 @@ namespace N3Lite
             if (Direction < 0)
             {
                 Vec3 back = -forward;
-                BodyRotation = Quat.LookRotation(back, surfaceNormal);
+                BodyRotation = Quat.LookRotation(ref back, ref OrientationUp);
                 CacheBodyForward(back);
-                SavedRotation = Quat.LookRotation(forward, surfaceNormal);
+                SavedRotation = Quat.LookRotation(ref forward, ref OrientationUp);
             }
             else
             {
-                BodyRotation = Quat.LookRotation(forward, surfaceNormal);
+                BodyRotation = Quat.LookRotation(ref forward, ref OrientationUp);
                 CacheBodyForward(forward);
                 SavedRotation = BodyRotation;
             }

@@ -64,10 +64,20 @@ namespace N3Lite
         /// </list>
         ///
         /// <para>
-        /// The basis-to-quaternion step is the standard one.
+        /// The basis-to-quaternion step is stock's own, which takes <c>up</c> as given — see
+        /// <see cref="FromBasis"/>.
         /// </para>
         /// </summary>
-        public static Quat LookRotation(Vec3 forward, Vec3 up)
+        public static Quat LookRotation(Vec3 forward, Vec3 up) => LookRotation(ref forward, ref up);
+
+        /// <summary>
+        /// <see cref="LookRotation(Vec3, Vec3)"/>, leaving its working in the arguments the way stock
+        /// does: <paramref name="up"/> squared to world up when its <c>Y &lt;= 0</c>, and
+        /// <paramref name="forward"/> projected and normalised — or, when the projection leaves nothing,
+        /// <c>cross((0,0,1), up)</c>. The orientation update caches that forward, which is why the
+        /// cached body forward is always a unit vector.
+        /// </summary>
+        public static Quat LookRotation(ref Vec3 forward, ref Vec3 up)
         {
             if (up.Y <= 0f)
                 up = Vec3.ReferenceUp;
@@ -75,64 +85,109 @@ namespace N3Lite
             float dot = Vec3.Dot(forward, up);
             forward.Y -= dot / up.Y;
 
-            float forwardLength = forward.Length;
-            if (forwardLength <= 1e-6f)
-                return Identity;
-            forward = forward * (1f / forwardLength);
+            if (NormaliseInPlace(ref forward) == 0f)
+                forward = Vec3.Cross(Vec3.ReferenceForward, up);
 
-            float upLength = up.Length;
-            if (upLength <= 1e-6f)
-                return Identity;
-            up = up * (1f / upLength);
+            return FromBasis(forward, up);
+        }
 
+        /// <summary>
+        /// Stock's normalise: scales <paramref name="v"/> to unit length and returns the length it ends
+        /// with. Between 1e-8 and 1e-4 it normalises twice; at or below 1e-8 it zeroes the vector and
+        /// returns 0.
+        /// </summary>
+        static float NormaliseInPlace(ref Vec3 v)
+        {
+            float length = (float)Math.Sqrt(v.LengthSquared);
+
+            if (length > 0.0001)
+            {
+                v = v * (1f / length);
+                return length;
+            }
+
+            if (length > 1e-8f)
+            {
+                v = v * (1f / length);
+                length = (float)Math.Sqrt(v.LengthSquared);
+                v = v * (1f / length);
+                return length;
+            }
+
+            v = Vec3.Zero;
+            return 0f;
+        }
+
+        /// <summary>
+        /// Stock's basis-to-quaternion step. It takes the vectors as they are — <c>up</c> is not
+        /// normalised and not re-derived, <c>right = cross(up, forward)</c> is not normalised — and
+        /// builds the quaternion directly as
+        /// <c>(up.z - fwd.y, fwd.x - right.z, right.y - up.x, 1 + right.x + up.y + fwd.z)</c>,
+        /// normalised. Only when that is too short (squared length at most 0.01, a turn near half a
+        /// revolution) does it fall back to the full matrix conversion, with the rows right, up and
+        /// forward.
+        /// </summary>
+        static Quat FromBasis(Vec3 forward, Vec3 up)
+        {
             Vec3 right = Vec3.Cross(up, forward);
-            float rightLength = right.Length;
-            if (rightLength <= 1e-6f)
-                return Identity;
-            right = right * (1f / rightLength);
 
-            // re-derive up so the basis is exactly orthonormal
-            up = Vec3.Cross(forward, right);
+            var q = new Quat(
+                up.Z - forward.Y,
+                forward.X - right.Z,
+                right.Y - up.X,
+                right.X + 1f + up.Y + forward.Z);
 
-            // standard orthonormal basis -> quaternion
-            float trace = right.X + up.Y + forward.Z;
-            if (trace > 0f)
+            float lengthSquared = q.X * q.X + q.Y * q.Y + q.Z * q.Z + q.W * q.W;
+            if (lengthSquared > 0.01)
             {
-                float s = (float)Math.Sqrt(trace + 1f) * 2f;
-                return new Quat(
-                    (up.Z - forward.Y) / s,
-                    (forward.X - right.Z) / s,
-                    (right.Y - up.X) / s,
-                    s * 0.25f);
+                float length = (float)Math.Sqrt(lengthSquared);
+                return new Quat(q.X / length, q.Y / length, q.Z / length, q.W / length);
             }
 
-            if (right.X > up.Y && right.X > forward.Z)
+            return FromRows(right, up, forward);
+        }
+
+        /// <summary>
+        /// The matrix conversion <see cref="FromBasis"/> falls back on. The rows are right, up and
+        /// forward; the branch is on the trace, then on the largest diagonal term.
+        /// </summary>
+        static Quat FromRows(Vec3 right, Vec3 up, Vec3 forward)
+        {
+            // Stock transposes the matrix before reading it, so mRC is row C, component R.
+            float m00 = right.X, m01 = up.X, m02 = forward.X;
+            float m10 = right.Y, m11 = up.Y, m12 = forward.Y;
+            float m20 = right.Z, m21 = up.Z, m22 = forward.Z;
+
+            float trace = m00 + m11 + m22;
+            if (trace >= 0f)
             {
-                float s = (float)Math.Sqrt(1f + right.X - up.Y - forward.Z) * 2f;
-                return new Quat(
-                    s * 0.25f,
-                    (up.X + right.Y) / s,
-                    (forward.X + right.Z) / s,
-                    (up.Z - forward.Y) / s);
+                float s = (float)Math.Sqrt(1f + trace);
+                float k = 0.5f / s;
+                return new Quat((m21 - m12) * k, (m02 - m20) * k, (m10 - m01) * k, s * 0.5f);
             }
 
-            if (up.Y > forward.Z)
+            int i = m11 > m00 ? 1 : 0;
+            if ((i == 1 ? m11 : m00) < m22)
+                i = 2;
+
+            if (i == 0)
             {
-                float s = (float)Math.Sqrt(1f + up.Y - right.X - forward.Z) * 2f;
-                return new Quat(
-                    (up.X + right.Y) / s,
-                    s * 0.25f,
-                    (forward.Y + up.Z) / s,
-                    (forward.X - right.Z) / s);
+                float s = (float)Math.Sqrt(m00 - (m11 + m22) + 1f);
+                float k = 0.5f / s;
+                return new Quat(s * 0.5f, (m01 + m10) * k, (m20 + m02) * k, (m21 - m12) * k);
+            }
+
+            if (i == 1)
+            {
+                float s = (float)Math.Sqrt(m11 - (m22 + m00) + 1f);
+                float k = 0.5f / s;
+                return new Quat((m01 + m10) * k, s * 0.5f, (m12 + m21) * k, (m02 - m20) * k);
             }
 
             {
-                float s = (float)Math.Sqrt(1f + forward.Z - right.X - up.Y) * 2f;
-                return new Quat(
-                    (forward.X + right.Z) / s,
-                    (forward.Y + up.Z) / s,
-                    s * 0.25f,
-                    (right.Y - up.X) / s);
+                float s = (float)Math.Sqrt(m22 - (m00 + m11) + 1f);
+                float k = 0.5f / s;
+                return new Quat((m20 + m02) * k, (m12 + m21) * k, s * 0.5f, (m10 - m01) * k);
             }
         }
 

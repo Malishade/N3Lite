@@ -82,6 +82,25 @@ namespace N3Lite.Tests
             Assert.True(body.Vehicle.GetBodyForward().Z > 0.9f);
         }
 
+        [Theory]
+        [InlineData(MovementFlags.Forward, 6f)]
+        [InlineData(MovementFlags.Backward, 3.7f)]
+        public void AcceleratesLinearlyFromRestToFullSpeedInHalfASecond(MovementFlags flags, float top)
+        {
+            // The drive force is maxForce = 2 * speed * mass along a unit forward, so the speed climbs
+            // by the same step every frame. A cached forward that was not unit length scaled the force
+            // by the speed and made the first metres a slow exponential crawl.
+            var body = Body();
+            body.SetInputs(flags);
+
+            for (int frame = 1; frame <= 30; frame++)
+            {
+                body.Tick(1f / 60f);
+                Assert.Equal(top * frame / 30f, body.CurrentSpeed, 3);
+                Assert.Equal(1f, body.Vehicle.GetBodyForward().Length, 4);
+            }
+        }
+
         [Fact]
         public void TurnUsesTheStandingOrMovingRate()
         {

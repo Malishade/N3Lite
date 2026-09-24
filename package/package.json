@@ -1,0 +1,13 @@
+{
+  "name": "com.malishade.n3lite",
+  "version": "0.1.0",
+  "displayName": "N3Lite",
+  "description": "Vehicle simulation and collision in plain C#: characters, NPCs and cameras on one sub-stepped integrator, against heightmap terrain and triangle-mesh geometry.",
+  "unity": "6000.0",
+  "dependencies": {
+    "com.unity.burst": "1.8.17"
+  },
+  "author": {
+    "name": "Malishade"
+  }
+}

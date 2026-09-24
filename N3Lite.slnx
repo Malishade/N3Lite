@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/N3Lite.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/N3Lite.Tests/N3Lite.Tests.csproj" />
+  </Folder>
+</Solution>

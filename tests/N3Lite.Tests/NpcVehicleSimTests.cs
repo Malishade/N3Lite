@@ -20,13 +20,13 @@ namespace N3Lite.Tests
             var sim = new NpcVehicleSim
             {
                 Mass = 50f, MaxForce = 10f, MaxVel = 1f, NearProbeOffset = 0.5f,
-                SlowingDistance = 1.5f, MovementState = 3, RunSpeedStat = 275f,
+                SlowingDistance = 1.5f,
                 Surface = new TilemapSurface(new Flat()), Position = at,
             };
             sim.EnableFalling();
             sim.DisableSurfaceHug();
             sim.UseSurfaceNormal();
-            sim.UpdateMotionConstraints();
+            sim.UpdateMotionConstraints(6f);
             return sim;
         }
 
@@ -220,7 +220,7 @@ namespace N3Lite.Tests
         }
 
         [Fact]
-        public void MovementStateOneHaltsAnNpc()
+        public void ALockedDriveHaltsAnNpc()
         {
             NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
             sim.Path.AddWaypoint(new Vec3(100f, 0f, 100f));
@@ -234,7 +234,7 @@ namespace N3Lite.Tests
             }
             Assert.True(sim.Speed > 0f);
 
-            sim.MovementState = 1;
+            sim.DriveLocked = true;
             for (int i = 0; i < 120; i++)
             {
                 sim.AdvanceGuide(1f / 60f);

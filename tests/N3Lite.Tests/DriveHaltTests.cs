@@ -23,14 +23,12 @@ namespace N3Lite.Tests
                 MaxVel = 1f,
                 NearProbeOffset = 0.5f,
                 SlowingDistance = 1.5f,
-                MovementState = 3,
-                RunSpeedStat = 275f,
                 Surface = new TilemapSurface(new Flat()),
                 Position = new Vec3(20f, 0.01f, 20f),
             };
             sim.EnableFalling();
             sim.DisableSurfaceHug();
-            sim.UpdateMotionConstraints();
+            sim.UpdateMotionConstraints(6f);
             return sim;
         }
 

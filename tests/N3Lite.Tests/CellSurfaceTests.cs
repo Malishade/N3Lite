@@ -296,13 +296,13 @@ namespace N3Lite.Tests
             var sim = new CharVehicleSim
             {
                 Mass = 50f, MaxForce = 10f, MaxVel = 1f, NearProbeOffset = 0.5f,
-                SlowingDistance = 1.5f, MovementState = 3, RunSpeedStat = 275f,
+                SlowingDistance = 1.5f,
                 Surface = surface, Position = at,
             };
             sim.EnableFalling();
             sim.DisableSurfaceHug();
             sim.UseSurfaceNormal();
-            sim.UpdateMotionConstraints();
+            sim.UpdateMotionConstraints(6f);
             return sim;
         }
 

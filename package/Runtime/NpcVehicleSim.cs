@@ -6,7 +6,7 @@ namespace N3Lite
     /// <para>
     /// It is <b>not</b> a variant of the player vehicle. Two of the three steering channels do
     /// nothing: an NPC has <b>no strafe and no turn</b>. Its one channel follows a
-    /// <see cref="Vehicles.Path"/> through a <see cref="PathGuide"/>, or arrives at a follow target.
+    /// <see cref="N3Lite.Path"/> through a <see cref="PathGuide"/>, or arrives at a follow target.
     /// So the four input axes belong to the player alone.
     /// </para>
     ///
@@ -59,7 +59,7 @@ namespace N3Lite
         ///
         /// <para>
         /// The target's <b>Y is replaced by the body's own</b>, which keeps an NPC from steering up or
-        /// down at a waypoint. Paths are flat anyway — <see cref="Vehicles.Path.AddWaypoint"/>
+        /// down at a waypoint. Paths are flat anyway — <see cref="N3Lite.Path.AddWaypoint"/>
         /// discards Y.
         /// </para>
         /// </summary>
@@ -67,8 +67,8 @@ namespace N3Lite
         {
             force = Vec3.Zero;
 
-            // Only state 1 is special-cased, unlike the player's 9/8/1 refusal.
-            if (MovementState == 1)
+            // A locked drive brakes an NPC to a halt; a player's body just gets no force.
+            if (DriveLocked)
                 return SteeringHalt(out force);
 
             if (HasFollowTarget)

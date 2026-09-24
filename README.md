@@ -5,9 +5,11 @@ sub-stepped integrator, against heightmap terrain and triangle-mesh geometry. On
 usable from Unity and from plain .NET.
 
 - **Vehicles** — a shared integrator with three steering channels (longitudinal force, lateral
-  velocity, turn rate); a four-axis character vehicle with a per-state speed curve and a jump; an
-  NPC vehicle that follows waypoint paths; first-person and third-person camera vehicles with zoom
-  and occlusion handling.
+  velocity, turn rate); a four-axis character vehicle with a jump; an NPC vehicle that follows
+  waypoint paths; first-person and third-person camera vehicles with zoom and occlusion handling.
+- **Characters** — `N3CharVehicle` wraps the character vehicle: movement flags to the four axes, a
+  `MovementProfile` for its speeds and what it may do (drive, take input, fly), the jump and NPC
+  paths. The game decides the numbers; one `Tick(dt)` per frame.
 - **Ground contact** — a ground clamp with step height, a slope gate, a tripod ground probe and a
   swept move with wall sliding.
 - **Surfaces** — a chunked heightmap walked tile by tile, a square cell grid of triangle meshes with

@@ -8,8 +8,7 @@ namespace N3Lite.Surfaces
     /// from the RDB's surface resources (record type <b>1000013</b>).
     ///
     /// <para>
-    /// The triangles sit in a BVH — a cell holds hundreds of them (471 average, 1229 max on the login
-    /// playfield). The tree is an acceleration structure only: the nearest hit along a segment is the
+    /// The triangles sit in a BVH, since a cell can hold hundreds of them. The tree is an acceleration structure only: the nearest hit along a segment is the
     /// same whatever structure finds it. What is <i>not</i> merely an optimisation is
     /// <see cref="CalculateClosestPoint"/> — see the note there.
     /// </para>

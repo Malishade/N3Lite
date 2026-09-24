@@ -6,7 +6,7 @@ namespace N3Lite.Tests
 {
     public class CharVehicleSimTests
     {
-        static CharVehicleSim Player(int state = 3, float runStat = 0f) => new CharVehicleSim
+        static CharVehicleSim Player() => new CharVehicleSim
         {
             Mass = 50f,
             MaxForce = 10f,
@@ -15,29 +15,16 @@ namespace N3Lite.Tests
             SlowingDistance = 1.5f,
             FallingEnabled = true,
             SurfaceHug = false,
-            MovementState = state,
-            RunSpeedStat = runStat,
         };
 
         [Theory]
-        [InlineData(3, 1, 0f, 5f)]
-        [InlineData(3, 1, 275f, 6f)]
-        [InlineData(3, 1, 2200f, 13f)]
-        [InlineData(3, 1, 10000f, 13f)]
-        [InlineData(3, 2, 0f, 3f)]
-        [InlineData(3, 2, 275f, 3.7f)]
-        [InlineData(4, 1, 0f, 3f)]
-        [InlineData(4, 1, 440f, 4f)]
-        [InlineData(7, 1, 0f, 7f)]
-        [InlineData(7, 1, 275f, 8f)]
-        [InlineData(2, 1, 5000f, 1.5f)]
-        [InlineData(5, 1, 5000f, 1f)]
-        public void MaxVelFollowsTheStateCurve(int state, int direction, float stat, float expected)
+        [InlineData(6f, 6f)]
+        [InlineData(1.5f, 1.5f)]
+        [InlineData(0.005f, 0.1f)]
+        public void MaxVelIsTheGivenSpeed(float speed, float expected)
         {
-            CharVehicleSim sim = Player(state, stat);
-            sim.CurveDirection = direction;
-
-            sim.UpdateMotionConstraints();
+            CharVehicleSim sim = Player();
+            sim.UpdateMotionConstraints(speed);
 
             Assert.Equal(expected, sim.MaxVel, 3);
         }
@@ -45,8 +32,8 @@ namespace N3Lite.Tests
         [Fact]
         public void MaxForceIsTwiceMassTimesSpeed()
         {
-            CharVehicleSim sim = Player(3, 275f);
-            sim.UpdateMotionConstraints();
+            CharVehicleSim sim = Player();
+            sim.UpdateMotionConstraints(6f);
 
             Assert.Equal(6f, sim.MaxVel, 3);
             Assert.Equal(2f * 50f * 6f, sim.MaxForce, 2);
@@ -55,10 +42,10 @@ namespace N3Lite.Tests
         [Fact]
         public void TheBrakeDistanceIsAQuarterOfTheMaxSpeed()
         {
-            foreach (float stat in new[] { 0f, 275f, 1000f, 5000f })
+            foreach (float speed in new[] { 1f, 5f, 6f, 13f })
             {
-                CharVehicleSim sim = Player(3, stat);
-                sim.UpdateMotionConstraints();
+                CharVehicleSim sim = Player();
+                sim.UpdateMotionConstraints(speed);
                 Assert.Equal(sim.MaxVel / 4f, sim.SlowingDistance, 3);
             }
         }
@@ -66,9 +53,9 @@ namespace N3Lite.Tests
         [Fact]
         public void MaxForceIsCappedAtTenThousand()
         {
-            CharVehicleSim sim = Player(3, 5000f);
+            CharVehicleSim sim = Player();
             sim.Mass = 500f;
-            sim.UpdateMotionConstraints();
+            sim.UpdateMotionConstraints(13f);
 
             Assert.Equal(10000f, sim.MaxForce, 1);
         }
@@ -81,37 +68,15 @@ namespace N3Lite.Tests
             sim.Mass = 0f;
             Assert.Equal(0.1f, sim.Mass, 4);
 
-            sim.UpdateMotionConstraints();
+            sim.UpdateMotionConstraints(6f);
             Assert.Equal(0.1f, sim.Mass, 4);
-        }
-
-        [Fact]
-        public void FlyTurnsGravityOff()
-        {
-            CharVehicleSim sim = Player(7);
-            Assert.True(sim.FallingEnabled);
-
-            sim.UpdateMotionConstraints();
-
-            Assert.False(sim.FallingEnabled);
-        }
-
-        [Theory]
-        [InlineData(3, 0f, 2.5f)]
-        [InlineData(3, 275f, 3f)]
-        [InlineData(3, 10000f, 6.5f)]
-        [InlineData(7, 0f, 3.5f)]
-        [InlineData(2, 0f, 1.5f)]
-        public void StrafeSpeedIsHalfTheForwardCurve(int state, float stat, float expected)
-        {
-            CharVehicleSim sim = Player(state, stat);
-            Assert.Equal(expected, sim.StrafeSpeed(state), 3);
         }
 
         [Fact]
         public void SetStrafeKeepsOnlyTheSignOfItsArgument()
         {
-            CharVehicleSim sim = Player(3, 275f);
+            CharVehicleSim sim = Player();
+            sim.StrafeSpeed = 3f;
 
             sim.SetStrafe(0.001f);
             Assert.Equal(3f, sim.Strafe, 3);
@@ -126,13 +91,11 @@ namespace N3Lite.Tests
             Assert.Equal(0f, sim.Strafe, 3);
         }
 
-        [Theory]
-        [InlineData(1)]
-        [InlineData(8)]
-        [InlineData(9)]
-        public void StatesOneEightAndNineRefuseLongitudinalSteering(int state)
+        [Fact]
+        public void ALockedDriveRefusesLongitudinalSteering()
         {
-            CharVehicleSim sim = Player(state);
+            CharVehicleSim sim = Player();
+            sim.DriveLocked = true;
             sim.SetForwardDrive(1f);
             sim.Run(1f / 60f);
 
@@ -142,14 +105,14 @@ namespace N3Lite.Tests
         [Fact]
         public void APositiveDriveGoesForwardAndANegativeOneReverses()
         {
-            CharVehicleSim forward = Player(3, 275f);
-            forward.UpdateMotionConstraints();
+            CharVehicleSim forward = Player();
+            forward.UpdateMotionConstraints(6f);
             forward.SetForwardDrive(1f);
             for (int i = 0; i < 60; i++)
                 forward.Run(1f / 60f);
 
-            CharVehicleSim back = Player(3, 275f);
-            back.UpdateMotionConstraints();
+            CharVehicleSim back = Player();
+            back.UpdateMotionConstraints(6f);
             back.SetForwardDrive(-1f);
             for (int i = 0; i < 60; i++)
                 back.Run(1f / 60f);
@@ -161,8 +124,8 @@ namespace N3Lite.Tests
         [Fact]
         public void AZeroDriveProducesNoLongitudinalSteering()
         {
-            CharVehicleSim sim = Player(3, 275f);
-            sim.UpdateMotionConstraints();
+            CharVehicleSim sim = Player();
+            sim.UpdateMotionConstraints(6f);
             sim.SetForwardDrive(0f);
 
             for (int i = 0; i < 60; i++)
@@ -174,8 +137,9 @@ namespace N3Lite.Tests
         [Fact]
         public void StrafeMovesAlongBodyRight()
         {
-            CharVehicleSim sim = Player(3, 275f);
-            sim.UpdateMotionConstraints();
+            CharVehicleSim sim = Player();
+            sim.UpdateMotionConstraints(6f);
+            sim.StrafeSpeed = 3f;
             sim.SetStrafe(1f);
 
             sim.Run(1f);
@@ -187,8 +151,8 @@ namespace N3Lite.Tests
         [Fact]
         public void TheVerticalAxisIsWorldUpNotBodyUp()
         {
-            CharVehicleSim sim = Player(3, 275f);
-            sim.UpdateMotionConstraints();
+            CharVehicleSim sim = Player();
+            sim.UpdateMotionConstraints(6f);
             sim.DisableFalling();
             sim.BodyRotation = Quat.FromAxisAngle(new Vec3(0f, 0f, 1f), (float)(Math.PI / 4.0));
             sim.SetVertical(2f);
@@ -203,8 +167,8 @@ namespace N3Lite.Tests
         [Fact]
         public void NoStrafeAndNoVerticalMeansNoLateralSteering()
         {
-            CharVehicleSim sim = Player(3, 275f);
-            sim.UpdateMotionConstraints();
+            CharVehicleSim sim = Player();
+            sim.UpdateMotionConstraints(6f);
 
             sim.Run(1f / 60f);
 
@@ -215,8 +179,8 @@ namespace N3Lite.Tests
         [Fact]
         public void TurningWhileStandingStillRotatesTheBody()
         {
-            CharVehicleSim sim = Player(3, 275f);
-            sim.UpdateMotionConstraints();
+            CharVehicleSim sim = Player();
+            sim.UpdateMotionConstraints(6f);
             sim.SetTurnRate(1f);
 
             sim.Run(0.5f);
@@ -229,8 +193,8 @@ namespace N3Lite.Tests
         [Fact]
         public void TurningWhileMovingRotatesTheVelocityNotTheBody()
         {
-            CharVehicleSim sim = Player(3, 275f);
-            sim.UpdateMotionConstraints();
+            CharVehicleSim sim = Player();
+            sim.UpdateMotionConstraints(6f);
             sim.SetForwardDrive(1f);
             for (int i = 0; i < 60; i++)
                 sim.Run(1f / 60f);
@@ -250,8 +214,8 @@ namespace N3Lite.Tests
         [Fact]
         public void AZeroTurnRateProducesNoTurnSteering()
         {
-            CharVehicleSim sim = Player(3, 275f);
-            sim.UpdateMotionConstraints();
+            CharVehicleSim sim = Player();
+            sim.UpdateMotionConstraints(6f);
             sim.SetTurnRate(0f);
 
             sim.Run(0.5f);

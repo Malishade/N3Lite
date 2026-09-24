@@ -33,30 +33,16 @@ namespace N3Lite
         /// <summary>Along <b>world</b> up, not body up.</summary>
         public float Vertical;
 
-        // ---- the state the speed model keys off -----------------------------
+        // ---- the speeds ---------------------------------------------------------
+
+        /// <summary>The strafe speed in m/s. <see cref="SetStrafe"/> applies it with the requested sign.</summary>
+        public float StrafeSpeed = 1f;
 
         /// <summary>
-        /// The movement state. States <b>1, 8 and 9 refuse longitudinal steering</b> outright, and 2,
-        /// 3, 4, 5, 7 each have their own speed curve. 7 is Fly.
-        ///
-        /// <para>
-        /// The names behind the other numbers are not known, so this is deliberately an <c>int</c>
-        /// rather than an enum.
-        /// </para>
+        /// Refuses longitudinal steering: a player's body gets no drive force at all, an NPC's brakes
+        /// to a halt.
         /// </summary>
-        public int MovementState = 3;
-
-        /// <summary>
-        /// Selects the forward or backward curve within state 3: <b>2 means reverse</b>, anything else
-        /// forward. Distinct from <see cref="VehicleSim.Direction"/>, the facing flip.
-        /// </summary>
-        public int CurveDirection = 1;
-
-        /// <summary>The run-speed stat, which drives the speed curve.</summary>
-        public float RunSpeedStat;
-
-        /// <summary>The speed curve's base, stored before the stat is applied.</summary>
-        public float SpeedBase { get; private set; }
+        public bool DriveLocked;
 
         // ---- the setters ----------------------------------------------------
 
@@ -67,113 +53,35 @@ namespace N3Lite
         public void SetVertical(float value) => Vertical = value;
 
         /// <summary>
-        /// <c>Strafe = sign(requested) * StrafeSpeed(state)</c>: the caller's magnitude is discarded,
-        /// only its sign matters.
+        /// <c>Strafe = sign(requested) * StrafeSpeed</c>: the caller's magnitude is discarded, only its
+        /// sign matters.
         /// </summary>
         public void SetStrafe(float requested)
-            => Strafe = Sign(requested) * StrafeSpeed(MovementState);
+            => Strafe = Sign(requested) * StrafeSpeed;
 
         /// <summary>+1, 0 or -1.</summary>
         internal static float Sign(float v) => v > 0f ? 1f : (v < 0f ? -1f : 0f);
 
-        // ---- the speed model --------------------------------------------------
-
         /// <summary>
-        /// The per-state speed curve. Returns the max velocity for
-        /// <see cref="UpdateMotionConstraints"/> and, halved, the strafe speed.
-        /// </summary>
-        struct Curve
-        {
-            public float Divisor;
-            public float Base;
-            public float Max;
-            public float Min;
-            public bool Constant;
-        }
-
-        static Curve CurveFor(int state, int direction)
-        {
-            switch (state)
-            {
-                case 3:
-                    return direction == 2
-                        ? new Curve { Divisor = 275f / 0.7f, Base = 3f, Max = 9.099999f, Min = 1.05f }
-                        : new Curve { Divisor = 275f, Base = 5f, Max = 13f, Min = 1.5f };
-                case 4:
-                    return new Curve { Divisor = 275f / 0.625f, Base = 3f, Max = 8f, Min = 1.5f };
-                case 7:
-                    return new Curve { Divisor = 275f, Base = 7f, Max = 15f, Min = 1.5f };
-                case 5:
-                    return new Curve { Base = 1f, Constant = true };
-                default:
-                    // state 2 and everything unlisted
-                    return new Curve { Base = 1.5f, Constant = true };
-            }
-        }
-
-        /// <summary>
-        /// The strafe speed: the forward curve <b>scaled by 0.5</b>, with a floor of 0.75 and no
-        /// separate maximum — <c>clamp(0.5*stat/divisor + 0.5*base, 0.75, 0.5*max)</c>. For the run
-        /// state that is <c>clamp(stat*0.5/275 + 2.5, 0.75, 6.5)</c>.
-        /// </summary>
-        public float StrafeSpeed(int state)
-        {
-            const float Scale = 0.5f;
-            const float Floor = 0.75f;
-
-            if (state == 2)
-                return Math.Max(Floor, 1.5f);
-
-            Curve curve = CurveFor(state, CurveDirection);
-            if (curve.Constant)
-                return Math.Max(Floor, curve.Base);
-
-            float v = Scale * RunSpeedStat / curve.Divisor + Scale * curve.Base;
-            float max = Scale * curve.Max;
-            if (v > max)
-                v = max;
-            if (v < Floor)
-                v = Floor;
-            return v;
-        }
-
-        /// <summary>
-        /// Recomputes mass, max velocity, max force and brake distance. Call it on every movement
-        /// state or speed-stat change.
+        /// Sets the max velocity to <paramref name="maxSpeed"/> and derives the max force and brake
+        /// distance from it. Call it whenever the speed changes.
         ///
         /// <para>
-        /// The brake distance reduces exactly to <c>maxVel / 4</c> in every branch:
-        /// <c>(v*v*m) / (2*v*m) * 0.5</c>. It is kept in the long form so the derivation stays visible.
+        /// The force is <c>2 * speed * mass</c>, which reaches full speed in half a second. The brake
+        /// distance reduces exactly to <c>speed / 4</c>: <c>(v*v*m) / (2*v*m) * 0.5</c>. It is kept in
+        /// the long form so the derivation stays visible.
         /// </para>
         /// </summary>
-        public void UpdateMotionConstraints()
+        public void UpdateMotionConstraints(float maxSpeed)
         {
             float mass = Mass;
             if (mass == 0f)
                 mass = 10f;
             Mass = mass;
 
-            Curve curve = CurveFor(MovementState, CurveDirection);
-            SpeedBase = curve.Base;
-
-            float v;
-            if (curve.Constant)
-            {
-                v = curve.Base;
-                if (v < 0.01f)
-                    v = 0.1f;
-            }
-            else
-            {
-                v = RunSpeedStat / curve.Divisor + curve.Base;
-                if (v > curve.Max)
-                    v = curve.Max;
-                if (v < curve.Min)
-                    v = curve.Min;
-            }
-
-            if (MovementState == 7)
-                DisableFalling();      // Fly turns gravity off
+            float v = maxSpeed;
+            if (v < 0.01f)
+                v = 0.1f;
 
             float force = 2f * v * mass;
             if (force > 100000f)
@@ -202,7 +110,7 @@ namespace N3Lite
         {
             force = Vec3.Zero;
 
-            if (MovementState == 9 || MovementState == 8 || MovementState == 1)
+            if (DriveLocked)
                 return SteeringResult.None;
 
             if (ForwardDrive == 0f)
@@ -259,49 +167,24 @@ namespace N3Lite
         /// </summary>
         public float JumpHeight { get; private set; }
 
-        /// <summary>Whether the owning character is an NPC; an NPC's jump height is floored.</summary>
-        public bool OwnerIsNpc;
-
         /// <summary>
-        /// The owning character's body scale. The ceiling clamp in <see cref="Jump"/> subtracts twice
-        /// this.
+        /// The body's height. The ceiling clamp in <see cref="Jump"/> keeps this much clear above the
+        /// position.
         /// </summary>
-        public float OwnerBodyScale = 1f;
+        public float BodyHeight = 2f;
 
         /// <summary>Raised from <see cref="OnLanded"/> when a jump in progress ends.</summary>
         public event Action JumpLanded;
 
         /// <summary>
-        /// A character's jump height from Strength (stat 16), Agility (17) and GmLevel (215):
-        /// <c>(str + agi) / 200 + 1</c>, at least 0.5. Past 800 in total a non-GM counts as exactly
-        /// 800 (<c>str = 800, agi = 0</c>).
-        /// </summary>
-        public static float JumpHeightFromStats(int strength, int agility, int gmLevel)
-        {
-            float str = strength;
-            float agi = agility;
-            if (800f < agi + str && gmLevel == 0)
-            {
-                str = 800f;
-                agi = 0f;
-            }
-
-            float height = (float)((agi + str) / 200.0 + 1.0);
-            if (height < 0.5f)
-                height = 0.5f;
-            return height;
-        }
-
-        /// <summary>
-        /// Starts a jump of <paramref name="height"/> (usually <see cref="JumpHeightFromStats"/>).
+        /// Starts a jump of <paramref name="height"/>.
         /// Returns false when refused because a jump is already in progress.
         ///
         /// <para>
         /// In order: refuse unless <see cref="JumpHeight"/> is zero. Probe the surface straight up,
         /// from the position to the position plus <c>(0, 100, 0)</c>. On a hit the headroom is
-        /// <c>hit.y - y - 2 * bodyScale</c>, floored at 0.1, and the height becomes the smaller of the
-        /// two. Store it; an NPC's stored value (<b>only</b> the stored one) is raised to 1.5. Launch
-        /// at <c>sqrt(2 * height * |g|)</c> through <see cref="VehicleSim.Impact"/> as
+        /// <c>hit.y - y - </c><see cref="BodyHeight"/>, floored at 0.1, and the height becomes the
+        /// smaller of the two. Store it and launch at <c>sqrt(2 * height * |g|)</c> through <see cref="VehicleSim.Impact"/> as
         /// <c>(0, v * mass, 0)</c>, then <see cref="VehicleSim.EnableFalling"/>.
         /// </para>
         ///
@@ -321,8 +204,8 @@ namespace N3Lite
                 && surface.GetLineIntersection(
                     Position, Position + new Vec3(0f, 100f, 0f), out Vec3 hit, out _, false, null))
             {
-                // Computed in double, rounded to float only once the body scale is off.
-                float headroom = (float)(((double)hit.Y - Position.Y) - (OwnerBodyScale + OwnerBodyScale));
+                // Computed in double, rounded to float only once the body height is off.
+                float headroom = (float)(((double)hit.Y - Position.Y) - BodyHeight);
                 if (headroom < 0.1f)
                     headroom = 0.1f;
                 if (headroom <= height)
@@ -330,8 +213,6 @@ namespace N3Lite
             }
 
             JumpHeight = height;
-            if (OwnerIsNpc && JumpHeight < 1.5f)
-                JumpHeight = 1.5f;
 
             float speed = MathF.Sqrt((height + height) * MathF.Abs(GravityAccel));
             Impact(new Vec3(0f, speed * Mass, 0f));

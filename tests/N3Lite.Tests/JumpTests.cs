@@ -51,30 +51,18 @@ namespace N3Lite.Tests
                 MaxVel = 1f,
                 NearProbeOffset = 0.5f,
                 SlowingDistance = 1.5f,
-                MovementState = 3,
-                RunSpeedStat = 275f,
                 Surface = surface ?? new TilemapSurface(new Flat()),
                 Position = new Vec3(20f, 0f, 20f),
             };
             sim.EnableFalling();
             sim.DisableSurfaceHug();
-            sim.UpdateMotionConstraints();
+            sim.UpdateMotionConstraints(6f);
             for (int i = 0; i < 30; i++)
                 sim.Run(1f / 60f);
             return sim;
         }
 
         static float LaunchSpeed(float height) => MathF.Sqrt((height + height) * MathF.Abs(VehicleSim.GravityAccel));
-
-        [Theory]
-        [InlineData(0, 0, 0, 1f)]
-        [InlineData(300, 300, 0, 4f)]
-        [InlineData(100, 50, 0, 1.75f)]
-        [InlineData(600, 600, 0, 5f)]
-        [InlineData(600, 600, 1, 7f)]
-        [InlineData(-200, -200, 0, 0.5f)]
-        public void HeightFromStats(int strength, int agility, int gmLevel, float expected)
-            => Assert.Equal(expected, CharVehicleSim.JumpHeightFromStats(strength, agility, gmLevel), 5);
 
         [Fact]
         public void LaunchesAtSqrtTwoGH()
@@ -140,7 +128,7 @@ namespace N3Lite.Tests
         public void CeilingClampsTheHeightToTheHeadroom()
         {
             CharVehicleSim sim = Body(new Ceiling(3f));
-            sim.OwnerBodyScale = 1f;
+            sim.BodyHeight = 2f;
             float headroom = (float)((3.0 - sim.Position.Y) - 2.0);
             Assert.InRange(headroom, 0.9f, 1.0f);
 
@@ -164,24 +152,11 @@ namespace N3Lite.Tests
         public void HeadroomIsFlooredAtOneTenth()
         {
             CharVehicleSim sim = Body(new Ceiling(1f));
-            sim.OwnerBodyScale = 1f;
+            sim.BodyHeight = 2f;
 
             sim.Jump(4f);
 
             Assert.Equal(0.1f, sim.JumpHeight, 5);
-            Assert.Equal(LaunchSpeed(0.1f), sim.VerticalVelocity, 4);
-        }
-
-        [Fact]
-        public void AnNpcStoresAtLeastOneAndAHalfButLaunchesAtTheRealHeight()
-        {
-            CharVehicleSim sim = Body(new Ceiling(1f));
-            sim.OwnerBodyScale = 1f;
-            sim.OwnerIsNpc = true;
-
-            sim.Jump(4f);
-
-            Assert.Equal(1.5f, sim.JumpHeight);
             Assert.Equal(LaunchSpeed(0.1f), sim.VerticalVelocity, 4);
         }
 

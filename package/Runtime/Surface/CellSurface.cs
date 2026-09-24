@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace LostEden.Vehicles.Surfaces
+namespace N3Lite.Surfaces
 {
     /// <summary>
     /// A flat grid of cells, each holding the surfaces whose geometry

@@ -1,4 +1,4 @@
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// The camera mode, persisted as the integer preference <c>"PreferredCameraMode"</c>.

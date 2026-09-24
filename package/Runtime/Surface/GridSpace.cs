@@ -1,6 +1,6 @@
 using System;
 
-namespace LostEden.Vehicles.Surfaces
+namespace N3Lite.Surfaces
 {
     /// <summary>
     /// The per-cell callback of a grid walk.

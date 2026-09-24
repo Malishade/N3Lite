@@ -1,6 +1,6 @@
 {
     "name": "N3Lite",
-    "rootNamespace": "LostEden.Vehicles",
+    "rootNamespace": "N3Lite",
     "references": [
         "Unity.Burst"
     ],

@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// A 3D vector. Left-handed, Y up.

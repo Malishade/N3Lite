@@ -1,9 +1,9 @@
-using LostEden.Vehicles;
-using LostEden.Vehicles.Surfaces;
+using N3Lite;
+using N3Lite.Surfaces;
 using Xunit;
-using Path = LostEden.Vehicles.Path;
+using Path = N3Lite.Path;
 
-namespace LostEden.Vehicle.Tests
+namespace N3Lite.Tests
 {
     public class NpcVehicleSimTests
     {

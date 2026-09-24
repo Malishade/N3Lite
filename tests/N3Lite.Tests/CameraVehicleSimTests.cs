@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using LostEden.Vehicles;
+using N3Lite;
 using Xunit;
 
-namespace LostEden.Vehicle.Tests;
+namespace N3Lite.Tests;
 
 public class CameraVehicleSimTests
 {

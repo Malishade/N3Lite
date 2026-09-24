@@ -1,6 +1,6 @@
 using System;
 
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// The first-person camera (view mode 0).

@@ -2,7 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 
-namespace LostEden.Vehicles.Surfaces
+namespace N3Lite.Surfaces
 {
     /// <summary>
     /// The two <see cref="TriangleMeshSurface"/> queries every body runs every frame — the line and the

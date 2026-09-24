@@ -1,4 +1,4 @@
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// What a steering behaviour asks the integrator to do with the vector it produced.

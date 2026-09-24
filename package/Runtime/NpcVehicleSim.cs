@@ -1,4 +1,4 @@
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// The vehicle an NPC moves with.

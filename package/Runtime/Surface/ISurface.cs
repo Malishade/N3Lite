@@ -1,4 +1,4 @@
-namespace LostEden.Vehicles.Surfaces
+namespace N3Lite.Surfaces
 {
     /// <summary>
     /// The world a vehicle collides against: the three queries ground contact uses.

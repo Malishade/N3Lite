@@ -53,3 +53,7 @@ dotnet test N3Lite.slnx
 Burst (Strict float mode) and .NET both round every step to single precision. Unity's Mono does
 not — it evaluates float expressions in double precision — so with Burst off, or in code Burst does
 not compile, results can differ between the two in the last bits.
+
+## License
+
+Public domain ([the Unlicense](LICENSE)).

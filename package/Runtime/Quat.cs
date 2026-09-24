@@ -1,6 +1,6 @@
 using System;
 
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// A rotation, stored x, y, z, w. Left-handed, like <see cref="Vec3"/>.

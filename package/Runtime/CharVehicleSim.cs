@@ -1,7 +1,7 @@
 using System;
-using LostEden.Vehicles.Surfaces;
+using N3Lite.Surfaces;
 
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// A character's vehicle, driven by four input axes — a player's body. The camera vehicle sits on

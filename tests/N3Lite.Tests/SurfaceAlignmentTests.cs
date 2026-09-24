@@ -1,9 +1,9 @@
 using System;
-using LostEden.Vehicles;
-using LostEden.Vehicles.Surfaces;
+using N3Lite;
+using N3Lite.Surfaces;
 using Xunit;
 
-namespace LostEden.Vehicle.Tests
+namespace N3Lite.Tests
 {
     public class SurfaceAlignmentTests
     {

@@ -1,6 +1,6 @@
 using System;
 
-namespace LostEden.Vehicles.Surfaces
+namespace N3Lite.Surfaces
 {
     /// <summary>
     /// The outdoor heightmap lookup over a tilemap's chunked height samples.

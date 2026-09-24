@@ -1,6 +1,6 @@
 using System;
 
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// Third-person camera at a preferred offset from the look target (view modes 2 and 3).

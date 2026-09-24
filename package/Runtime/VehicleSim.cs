@@ -1,7 +1,7 @@
 using System;
-using LostEden.Vehicles.Surfaces;
+using N3Lite.Surfaces;
 
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// The integrator characters and the camera share: three steering channels in, a sub-stepped

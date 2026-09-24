@@ -1,0 +1,26 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        run: dotnet test N3Lite.slnx -c Release
+
+      - name: Pack
+        run: dotnet pack src/N3Lite.csproj -c Release -o out -p:VersionSuffix= -p:Version=0.1.${{ github.run_number }}
+
+      - name: Push to nuget.org
+        run: dotnet nuget push "out/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

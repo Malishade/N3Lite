@@ -1,6 +1,6 @@
 using System;
 
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// The camera's steering brain: it decides where the camera wants to be and hands a force to

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace LostEden.Vehicles
+namespace N3Lite
 {
     /// <summary>
     /// The waypoint list an <see cref="NpcVehicleSim"/> follows.

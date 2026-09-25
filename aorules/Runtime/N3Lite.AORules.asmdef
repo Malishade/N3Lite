@@ -1,0 +1,16 @@
+{
+    "name": "N3Lite.AORules",
+    "rootNamespace": "N3Lite.AORules",
+    "references": [
+        "N3Lite"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

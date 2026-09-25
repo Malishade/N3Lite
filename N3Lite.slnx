@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/N3Lite.csproj" />
+    <Project Path="src/N3Lite.AORules/N3Lite.AORules.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/N3Lite.Tests/N3Lite.Tests.csproj" />
+    <Project Path="tests/N3Lite.AORules.Tests/N3Lite.AORules.Tests.csproj" />
   </Folder>
 </Solution>

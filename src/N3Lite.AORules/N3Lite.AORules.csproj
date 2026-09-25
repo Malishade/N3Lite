@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The same sources Unity compiles through aorules/Runtime/N3Lite.AORules.asmdef, built for .NET. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <!-- Unity 6 compiles C# 9; keep the two builds on the same language. -->
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>N3Lite.AORules</RootNamespace>
+    <AssemblyName>N3Lite.AORules</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <!-- NuGet. Packed with the same version as N3Lite, which it depends on through the reference below. -->
+  <PropertyGroup>
+    <PackageId>N3Lite.AORules</PackageId>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <Description>Stock movement rules on top of N3Lite: per-state speed curves from the run-speed stat, strafe, drive locks, and jump height from stats.</Description>
+    <PackageTags>physics;character-controller;movement</PackageTags>
+    <RepositoryUrl>https://github.com/Malishade/N3Lite</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Malishade/N3Lite</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\N3Lite.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\aorules\Runtime\**\*.cs" Link="%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Include="..\..\aorules\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

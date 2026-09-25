@@ -20,7 +20,9 @@ jobs:
         run: dotnet test N3Lite.slnx -c Release
 
       - name: Pack
-        run: dotnet pack src/N3Lite.csproj -c Release -o out -p:VersionSuffix= -p:Version=0.1.${{ github.run_number }}
+        run: |
+          dotnet pack src/N3Lite.csproj -c Release -o out -p:VersionSuffix= -p:Version=0.1.${{ github.run_number }}
+          dotnet pack src/N3Lite.AORules/N3Lite.AORules.csproj -c Release -o out -p:VersionSuffix= -p:Version=0.1.${{ github.run_number }}
 
       - name: Push to nuget.org
         run: dotnet nuget push "out/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

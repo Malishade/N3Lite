@@ -16,6 +16,20 @@ namespace N3Lite.AORules.Tests
         }
 
         [Fact]
+        public void Stat224Bit4LetsAnNpcFollow()
+        {
+            var movement = new CharMovement(isNpc: true);
+            Assert.False(movement.Core.Npc.FollowEnabled);
+
+            movement.SetStats(new MovementStats { Features = 0x4 });
+            Assert.True(movement.Core.Npc.FollowEnabled);
+
+            movement.SelectVehicleKind(false);
+            movement.SelectVehicleKind(true);        // a rebuilt vehicle gets it again
+            Assert.True(movement.Core.Npc.FollowEnabled);
+        }
+
+        [Fact]
         public void AnUnsetScaleReadsAsOne()
         {
             var movement = new CharMovement();

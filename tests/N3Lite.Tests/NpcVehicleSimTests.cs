@@ -207,8 +207,7 @@ namespace N3Lite.Tests
             sim.Path.AddWaypoint(new Vec3(60f, 0f, 100f));
             sim.RestartPath();
 
-            sim.HasFollowTarget = true;
-            sim.FollowTarget = new Vec3(120f, 0f, 100f);
+            sim.SetFollowPath(new[] { new Vec3(120f, 0f, 100f) });
 
             for (int i = 0; i < 300; i++)
             {
@@ -242,6 +241,197 @@ namespace N3Lite.Tests
             }
 
             Assert.Equal(0f, sim.Speed, 3);
+        }
+
+        static void Step(NpcVehicleSim sim, int frames)
+        {
+            for (int i = 0; i < frames; i++)
+            {
+                sim.AdvanceGuide(1f / 60f);
+                sim.Run(1f / 60f);
+            }
+        }
+
+        [Fact]
+        public void AFollowingNpcWalksEachPointAndStopsAboutOneMetreShortOfTheLast()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
+            int halts = 0;
+            sim.Halted += () => halts++;
+
+            sim.SetFollowPath(new[] { new Vec3(110f, 0f, 100f), new Vec3(110f, 0f, 110f) });
+            Step(sim, 600);
+
+            Assert.Empty(sim.FollowQueue);
+            Assert.Equal(0f, sim.Speed, 3);
+            Assert.Equal(1, halts);
+
+            float dx = 110f - sim.Position.X, dz = 110f - sim.Position.Z;
+            float gap = (float)System.Math.Sqrt(dx * dx + dz * dz);
+            Assert.InRange(gap, 0.5f, 1.2f);
+        }
+
+        [Fact]
+        public void SnapToStartPlacesTheBodyOnTheGroundUnderPointZeroAndQueuesTheRest()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
+
+            sim.SetFollowPath(new[] { new Vec3(50f, 1f, 60f), new Vec3(55f, 0f, 60f) }, snapToStart: true);
+
+            Assert.Equal(50f, sim.Position.X, 3);
+            Assert.Equal(60f, sim.Position.Z, 3);
+            Assert.Equal(0f, sim.Position.Y, 2);                   // dropped onto the flat ground
+            Assert.Single(sim.FollowQueue);
+            Assert.Equal(55f, sim.FollowQueue[0].X, 3);
+        }
+
+        [Fact]
+        public void SnapToStartKeepsALoneStartAsTheWaypoint()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
+
+            sim.SetFollowPath(new[] { new Vec3(50f, 0f, 60f) }, snapToStart: true);
+
+            Assert.Single(sim.FollowQueue);
+            Assert.Equal(50f, sim.FollowQueue[0].X, 3);
+        }
+
+        [Fact]
+        public void WithoutSnapEveryPointIsAWaypoint()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
+
+            sim.SetFollowPath(new[] { new Vec3(50f, 0f, 60f), new Vec3(55f, 0f, 60f) });
+
+            Assert.Equal(100f, sim.Position.X, 3);
+            Assert.Equal(2, sim.FollowQueue.Count);
+        }
+
+        [Fact]
+        public void FollowDisabledHoldsTheNpcInPlace()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
+            sim.FollowEnabled = false;
+
+            sim.SetFollowPath(new[] { new Vec3(120f, 0f, 100f) });
+            Step(sim, 120);
+
+            Assert.Equal(100f, sim.Position.X, 1);
+            Assert.Single(sim.FollowQueue);
+        }
+
+        [Fact]
+        public void AMovingStateWithNothingToFollowAsksForAFullStop()
+        {
+            var sim = new NpcVehicleSim();
+            int stops = 0;
+            sim.FullStopRequested += () => stops++;
+
+            sim.AdvanceGuide(1f / 60f);
+            Assert.Equal(0, stops);
+
+            sim.ForwardActive = true;
+            sim.AdvanceGuide(1f / 60f);
+            Assert.Equal(1, stops);
+
+            sim.SetFollowPath(new[] { new Vec3(1f, 0f, 1f) });
+            sim.AdvanceGuide(1f / 60f);
+            Assert.Equal(1, stops);
+        }
+
+        [Fact]
+        public void TheFollowQueueEndsAtAZeroPointAndHoldsThirty()
+        {
+            var sim = new NpcVehicleSim();
+
+            sim.SetFollowPath(new[] { new Vec3(1f, 0f, 1f), Vec3.Zero, new Vec3(2f, 0f, 2f) });
+            Assert.Single(sim.FollowQueue);
+
+            var many = new Vec3[40];
+            for (int i = 0; i < many.Length; i++)
+                many[i] = new Vec3(i + 1f, 0f, 0f);
+            sim.SetFollowPath(many);
+            Assert.Equal(NpcVehicleSim.FollowQueueCapacity, sim.FollowQueue.Count);
+        }
+
+        [Fact]
+        public void AnIdleNpcIsNotStepped()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 5f, 100f));
+            sim.LandNow(5f);                  // on the "ground" at 5 m, nothing to do
+
+            Assert.False(sim.Run(1f / 60f));
+            Assert.Equal(5f, sim.Position.Y, 5);
+
+            sim.ForwardActive = true;         // a moving forward state keeps it stepping, so it falls
+            for (int i = 0; i < 30; i++)
+                sim.Run(1f / 60f);
+            Assert.True(sim.Position.Y < 5f, $"was not stepped, y={sim.Position.Y}");
+        }
+
+        [Fact]
+        public void TheGuideKeepsTheSpeedItWasRestartedWith()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
+            sim.Path.AddWaypoint(new Vec3(100f, 0f, 100f));
+            sim.Path.AddWaypoint(new Vec3(200f, 0f, 100f));
+            sim.RestartPath();
+            float speed = sim.Guide.MaxSpeed;
+
+            sim.UpdateMotionConstraints(2f);
+            sim.AdvanceGuide(1f);
+
+            Assert.Equal(speed, sim.Guide.MaxSpeed, 5);
+        }
+
+        [Fact]
+        public void SeededMotionIsTakenWholeAndReadsBackTheSame()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
+            var velocity = new Vec3(3f, 0f, 0f);
+            var path = new[] { new Vec3(95f, 0f, 100f), new Vec3(140f, 0f, 100f) };
+
+            sim.SetMotionState(velocity, path, 2f);
+
+            Assert.Equal(3f, sim.Speed, 5);                       // no ramp from rest
+            Assert.Equal(2f, sim.Guide.Time, 5);
+            Assert.Equal(95f + 2f * sim.MaxVel, sim.Guide.GuidePos.X, 3);
+
+            var back = new System.Collections.Generic.List<Vec3>();
+            sim.GetMotionState(out Vec3 v, back, out float t);
+            Assert.Equal(velocity, v);
+            Assert.Equal(2, back.Count);
+            Assert.Equal(2f, t, 5);
+
+            var copy = Npc(new Vec3(100f, 0.01f, 100f));
+            copy.SetMotionState(v, back, t);
+            Assert.Equal(sim.Guide.GuidePos, copy.Guide.GuidePos);
+        }
+
+        [Fact]
+        public void SeedingWithNoWaypointsZeroesTheGuideTime()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
+            sim.SetMotionState(Vec3.Zero, null, 5f);
+
+            Assert.True(sim.Path.Empty);
+            Assert.Equal(0f, sim.Guide.Time, 5);
+        }
+
+        [Fact]
+        public void AHaltNearThePathsEndClearsItAndRaisesHalted()
+        {
+            NpcVehicleSim sim = Npc(new Vec3(100f, 0.01f, 100f));
+            int halts = 0;
+            sim.Halted += () => halts++;
+
+            sim.Path.AddWaypoint(new Vec3(100f, 0f, 100f));
+            sim.Path.AddWaypoint(new Vec3(112f, 0f, 100f));
+            sim.RestartPath();
+            Step(sim, 600);
+
+            Assert.True(sim.Path.Empty);
+            Assert.Equal(1, halts);
         }
 
         [Fact]

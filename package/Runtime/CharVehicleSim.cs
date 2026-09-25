@@ -177,6 +177,19 @@ namespace N3Lite
         public event Action JumpLanded;
 
         /// <summary>
+        /// A moving body halted and its movement should stop. Stock applies <c>ForwardStop</c> here, or
+        /// <c>BackwardStop</c> when <see cref="VehicleSim.Direction"/> is negative
+        /// (<c>CharVehicle_t::OnHalt</c>, <c>1006f49d</c>). N3Lite has no movement status, so the owner
+        /// applies it: the client to its own state, the server by sending it.
+        /// </summary>
+        public event Action Halted;
+
+        /// <inheritdoc/>
+        protected override void OnHalt() => RaiseHalted();
+
+        protected void RaiseHalted() => Halted?.Invoke();
+
+        /// <summary>
         /// Starts a jump of <paramref name="height"/>.
         /// Returns false when refused because a jump is already in progress.
         ///

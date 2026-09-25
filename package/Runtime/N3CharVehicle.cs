@@ -37,6 +37,18 @@ namespace N3Lite
         /// <summary>The path was cleared — any path the caller keeps alongside should be cleared too.</summary>
         public event Action PathCleared;
 
+        /// <summary>
+        /// The body halted and its movement should stop — see <see cref="CharVehicleSim.Halted"/>.
+        /// Stock applies <c>ForwardStop</c> (<c>BackwardStop</c> when backing up).
+        /// </summary>
+        public event Action Halted;
+
+        /// <summary>
+        /// An NPC with nothing to follow is still flagged as moving — see
+        /// <see cref="NpcVehicleSim.FullStopRequested"/>. Stock applies <c>FullStop</c>.
+        /// </summary>
+        public event Action FullStopRequested;
+
         /// <summary>Keyboard turn rate while moving, radians per second.</summary>
         public float TurnRateMoving = 1.5f;
 
@@ -119,7 +131,12 @@ namespace N3Lite
         {
             CharVehicleSim previous = _sim;
             if (previous != null)
+            {
                 previous.JumpLanded -= OnVehicleJumpLanded;
+                previous.Halted -= OnVehicleHalted;
+                if (previous is NpcVehicleSim previousNpc)
+                    previousNpc.FullStopRequested -= OnVehicleFullStopRequested;
+            }
 
             _isNpc = isNpc;
             _sim = isNpc ? new NpcVehicleSim() : new CharVehicleSim();
@@ -130,6 +147,9 @@ namespace N3Lite
             _sim.SlowingDistance = 1.5f;
             _sim.BodyHeight = _bodyHeight;
             _sim.JumpLanded += OnVehicleJumpLanded;
+            _sim.Halted += OnVehicleHalted;
+            if (_sim is NpcVehicleSim npc)
+                npc.FullStopRequested += OnVehicleFullStopRequested;
 
             _sim.EnableFalling();
             _sim.DisableSurfaceHug();
@@ -197,9 +217,12 @@ namespace N3Lite
         void ApplyFlagsToAxes()
         {
             // An NPC body has no input axes: the flags are stored for whoever reads them, but writing
-            // axes would fight the path guide.
+            // axes would fight the path guide. Driving either way still keeps its vehicle stepping.
             if (_isNpc)
+            {
+                Npc.ForwardActive = (_flags & (MovementFlags.Forward | MovementFlags.Backward)) != 0;
                 return;
+            }
 
             float drive = 0f;
             if ((_flags & MovementFlags.Forward) != 0)
@@ -347,11 +370,15 @@ namespace N3Lite
         // ---- paths -----------------------------------------------------------------
 
         /// <summary>
-        /// Clears the path and the input flags, then — on an NPC body — follows
-        /// <paramref name="waypoints"/>. Returns false on a player's body, which has no path of its
-        /// own; the caller steers those.
+        /// Clears the path and the input flags, then — on an NPC body — walks
+        /// <paramref name="waypoints"/> through the follow queue
+        /// (<see cref="NpcVehicleSim.SetFollowPath"/>), which is what stock does with a FollowTarget
+        /// path. An empty list leaves the NPC following nothing, so it halts where it is.
+        /// <paramref name="snapToStart"/> takes the first point as where the NPC is now, as a
+        /// FollowTarget message lays it out. Returns false on a player's body, which has no path of
+        /// its own; the caller steers those.
         /// </summary>
-        public bool SetPath(IReadOnlyList<Vec3> waypoints)
+        public bool SetPath(IReadOnlyList<Vec3> waypoints, bool snapToStart = false)
         {
             ClearPath();
             SetFlags(MovementFlags.None);
@@ -360,20 +387,60 @@ namespace N3Lite
             if (npc == null)
                 return false;
 
-            if (waypoints == null || waypoints.Count == 0)
-                return true;
-
-            npc.Path.Clear();
-            for (int i = 0; i < waypoints.Count; i++)
-                npc.Path.AddWaypoint(waypoints[i]);
-            npc.RestartPath();
+            npc.SetFollowPath(waypoints, snapToStart);
             return true;
         }
 
+        /// <summary>Clears the guide path and the follow queue.</summary>
         public void ClearPath()
         {
-            Npc?.Path.Clear();
+            NpcVehicleSim npc = Npc;
+            if (npc != null)
+            {
+                npc.Path.Clear();
+                npc.ClearFollowTarget();
+            }
             PathCleared?.Invoke();
         }
+
+        /// <summary>
+        /// Puts an NPC mid-walk the way the spawn message describes it: at
+        /// <paramref name="position"/>, moving at <paramref name="velocity"/>, on
+        /// <paramref name="waypoints"/> with the guide <paramref name="guideTime"/> seconds along. See
+        /// <see cref="NpcVehicleSim.SetMotionState"/>. Returns false on a player's body.
+        /// </summary>
+        public bool SeedNpcMotion(Vec3 position, Vec3 velocity, IReadOnlyList<Vec3> waypoints, float guideTime)
+        {
+            NpcVehicleSim npc = Npc;
+            if (npc == null)
+                return false;
+
+            npc.Position = position;
+            npc.SetMotionState(velocity, waypoints, guideTime);
+            return true;
+        }
+
+        /// <summary>
+        /// The NPC's motion as the spawn message carries it — what the server writes for a client that
+        /// starts seeing the NPC. Position is <see cref="Position"/>. Returns false on a player's body.
+        /// </summary>
+        public bool ReadNpcMotion(out Vec3 velocity, List<Vec3> waypoints, out float guideTime)
+        {
+            NpcVehicleSim npc = Npc;
+            if (npc == null)
+            {
+                velocity = Vec3.Zero;
+                guideTime = 0f;
+                waypoints.Clear();
+                return false;
+            }
+
+            npc.GetMotionState(out velocity, waypoints, out guideTime);
+            return true;
+        }
+
+        void OnVehicleHalted() => Halted?.Invoke();
+
+        void OnVehicleFullStopRequested() => FullStopRequested?.Invoke();
     }
 }

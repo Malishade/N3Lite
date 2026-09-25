@@ -140,6 +140,12 @@ namespace N3Lite.AORules
             return height;
         }
 
+        /// <summary>Stat 224 bit 4 (<c>0x4</c>): an NPC may follow (<c>10070503</c>).</summary>
+        public const int FeatureCanFollow = 0x4;
+
+        /// <summary>Whether an NPC with these stat-224 features may follow its path or target.</summary>
+        public static bool CanFollow(int features) => (features & FeatureCanFollow) != 0;
+
         /// <summary>The ceiling clamp keeps twice the body scale clear above the position.</summary>
         public static float BodyHeight(float bodyScale) => bodyScale + bodyScale;
     }

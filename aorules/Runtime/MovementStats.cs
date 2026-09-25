@@ -17,6 +17,12 @@ namespace N3Lite.AORules
         public int Agility;
         public int GmLevel;
 
+        /// <summary>
+        /// Stat 224. An NPC follows only while bit 4 (<c>0x4</c>) is set (<c>10070503</c>); see
+        /// <see cref="CharMovementRules.CanFollow"/>. What sets that bit is not traced.
+        /// </summary>
+        public int Features;
+
         /// <summary>Stat 360, in percent. Zero or less reads as 100.</summary>
         public int Scale;
 

@@ -858,12 +858,25 @@ namespace N3Lite
         /// <summary>Called when a blocked move gives up.</summary>
         protected virtual void OnHalt() { }
 
-        /// <summary>Zeroes the motion state.</summary>
+        /// <summary>
+        /// Zeroes the motion state. On a body that was moving it also keeps the facing and calls
+        /// <see cref="OnHalt"/>, as stock's <c>Halt</c> (<c>1000a688</c>) does — including the halt the
+        /// integrator makes on a <see cref="SteeringResult.Halt"/>.
+        /// </summary>
         public virtual void Halt()
         {
+            bool moving = Speed != 0f;
+
             Velocity = Vec3.Zero;
             SteerForce = Vec3.Zero;
             Speed = 0f;
+
+            if (moving)
+            {
+                SavedRotation = BodyRotation;
+                CacheBodyForward();
+                OnHalt();
+            }
         }
 
         /// <summary>

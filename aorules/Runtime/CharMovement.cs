@@ -82,8 +82,16 @@ namespace N3Lite.AORules
                 ? LastSpeedMode
                 : CharMovementRules.StateRun);
 
-        /// <summary>The state, the run speed and the vehicle kind, into the core's profile.</summary>
+        /// <summary>
+        /// The state, the run speed and the vehicle kind, into the core's profile; and on an NPC, stat
+        /// 224's follow bit.
+        /// </summary>
         void ApplyRules()
-            => _core.SetProfile(CharMovementRules.Profile(_state, _stats.RunSpeed, _core.IsNpcVehicle));
+        {
+            _core.SetProfile(CharMovementRules.Profile(_state, _stats.RunSpeed, _core.IsNpcVehicle));
+
+            if (_core.Npc != null)
+                _core.Npc.FollowEnabled = CharMovementRules.CanFollow(_stats.Features);
+        }
     }
 }

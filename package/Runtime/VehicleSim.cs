@@ -348,6 +348,13 @@ namespace N3Lite
                     airborneNow = false;
             }
 
+            // NOT STOCK. A body the geometry will not let fall is standing on it, whatever the slope gate
+            // says: without this a body wedged between two steep faces stays airborne at terminal
+            // velocity for ever, with no ground to land on, no room to fall and a jump that Impact drops.
+            if (airborneNow && FallingEnabled && !force && VerticalVelocity < 0.1f
+                && FallIsBlocked(surface, probe))
+                airborneNow = false;
+
             if (OrientationMode == 1)
             {
                 Vec3 secondHigh = probe + new Vec3(0f, ProbeLift, 0f);
@@ -394,6 +401,34 @@ namespace N3Lite
 
             bool reoriented = UpdateOrientation(normal);
             return moved || reoriented;
+        }
+
+        /// <summary>How far <see cref="FallIsBlocked"/> tries to drop the body.</summary>
+        public const float SupportProbeDrop = 0.05f;
+
+        /// <summary>A drop shorter than this, out of <see cref="SupportProbeDrop"/>, is a blocked fall.</summary>
+        public const float SupportMinDrop = 0.005f;
+
+        /// <summary>
+        /// NOT STOCK. Whether a short fall from <paramref name="feet"/> is refused by the swept move — the
+        /// same sweep, width and slope limit a falling body uses, from the same lifted start. A steep face
+        /// alone still lets the body slide down it; only a pocket that holds it in place counts.
+        /// </summary>
+        bool FallIsBlocked(ISurface surface, Vec3 feet)
+        {
+            Vec3 start = feet + new Vec3(0f, ProbeLift, 0f);
+            Vec3 position = start;
+            float ceilingY = start.Y;
+            float horizontalBudget = 0f;
+            float totalBudget = SupportProbeDrop;
+
+            SweptMove(
+                ref position, SweptHalfWidth, new Vec3(0f, -1f, 0f),
+                ref horizontalBudget, ref totalBudget,
+                surface, ref ceilingY,
+                3, SweptIterations, SlopeNormalY);
+
+            return start.Y - position.Y < SupportMinDrop;
         }
 
         /// <summary>

@@ -5,12 +5,12 @@ using System;
 // run as ordinary C#, exactly as they do inside Unity with Burst switched off.
 namespace Unity.Burst
 {
-    public enum FloatMode { Default, Strict, Deterministic, Fast }
+    internal enum FloatMode { Default, Strict, Deterministic, Fast }
 
-    public enum FloatPrecision { Standard, High, Medium, Low }
+    internal enum FloatPrecision { Standard, High, Medium, Low }
 
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method | AttributeTargets.Assembly)]
-    public sealed class BurstCompileAttribute : Attribute
+    internal sealed class BurstCompileAttribute : Attribute
     {
         public FloatMode FloatMode { get; set; }
         public FloatPrecision FloatPrecision { get; set; }

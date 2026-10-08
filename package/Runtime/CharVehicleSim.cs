@@ -198,6 +198,21 @@ namespace N3Lite
         protected override void OnStartMoving() => StartedMoving?.Invoke();
 
         /// <summary>
+        /// The body went into deep liquid (the ground answer more than <see cref="VehicleSim.LiquidDepthThreshold"/>
+        /// under the surface). The owner switches the character to swimming.
+        /// </summary>
+        public event Action EnteredLiquid;
+
+        /// <summary>The body came out of deep liquid, or stopped falling while in it.</summary>
+        public event Action LeftLiquid;
+
+        /// <inheritdoc/>
+        protected override void OnEnterLiquid() => EnteredLiquid?.Invoke();
+
+        /// <inheritdoc/>
+        protected override void OnLeaveLiquid() => LeftLiquid?.Invoke();
+
+        /// <summary>
         /// Starts a jump of <paramref name="height"/>.
         /// Returns false when refused because a jump is already in progress.
         ///

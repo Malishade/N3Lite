@@ -295,7 +295,13 @@ namespace N3Lite
             ceilingY = force ? probe.Y + 1f : Math.Max(ceilingY, probe.Y);
 
             probe.Y -= ProbeLift;
-            surface.CalculateClosestPoint(probe, out Vec3 closest, out _, this);
+            // The body's liquid medium goes with the query; a surface with no liquid leaves "none".
+            _liquidMedium.Height = Liquids.LiquidZones.NoLiquid;
+            Vec3 closest;
+            if (surface is ILiquidSurface liquidSurface)
+                liquidSurface.CalculateClosestPoint(probe, out closest, out _, this, _liquidMedium);
+            else
+                surface.CalculateClosestPoint(probe, out closest, out _, this);
 
             float stepHeight = CollisionProfile == 4 ? CameraStepHeight : StepHeight;
             if (probe.Y < closest.Y + stepHeight)
@@ -320,6 +326,10 @@ namespace N3Lite
 
             float tripodMax = Math.Max(h0.Y, Math.Max(h1.Y, h2.Y));
 
+            // The liquid over the ground point, and how far under it the (lifted) ground answer is.
+            float liquidHeight = _liquidMedium.Height;
+            float liquidDepth = liquidHeight - closest.Y;
+
             float halfExtent = BodyHalfExtent;
             if (FallingEnabled && !Airborne && !force)
             {
@@ -332,7 +342,9 @@ namespace N3Lite
             // airborne, so it slides down; climbing one is refused in the swept move.
             bool airborneNow = true;
 
-            if (probe.Y - halfExtent <= tripodMax)
+            // At the ground means within reach of the ground OR the liquid surface, whichever is higher.
+            float reachRef = tripodMax < liquidHeight ? liquidHeight : tripodMax;
+            if (probe.Y - halfExtent <= reachRef)
             {
                 float groundRef = tripodMax;
                 if (groundRef < closest.Y)
@@ -393,6 +405,8 @@ namespace N3Lite
                 else if (Airborne)
                     LandNow(probe.Y);
             }
+
+            ApplyLiquid(ref probe, previousPosition, liquidHeight, liquidDepth);
 
             surface.VetoPosition(ref probe, this, previousPosition);
             Position = probe;
@@ -981,9 +995,146 @@ namespace N3Lite
 
         public bool InLiquid;
 
+        /// <summary>How deep the ground answer must be under the liquid surface to swim (1.19).</summary>
+        public float LiquidDepthThreshold = 1.19f;
+
+        /// <summary>
+        /// How far under the liquid surface the body is, or <see cref="ClearOfLiquid"/> once it has come out
+        /// above it.
+        /// </summary>
+        public float LiquidDepth = ClearOfLiquid;
+
+        /// <summary>The value <see cref="LiquidDepth"/> is reset to when the body is clear of the liquid.</summary>
+        public const float ClearOfLiquid = -9999f;
+
+        readonly Liquids.LiquidMedium _liquidMedium = new Liquids.LiquidMedium();
+
+        /// <summary>What the last ground query found of the liquid at the ground point.</summary>
+        public Liquids.LiquidMedium LiquidMedium => _liquidMedium;
+
+        /// <summary>
+        /// The liquid step of the ground clamp, by <see cref="CollisionProfile"/>, then the body's depth
+        /// under the surface. <paramref name="depth"/> is how far the ground answer is under the surface;
+        /// with the lift at 1.2 any deep water reads 1.2, over the 1.19 threshold.
+        /// </summary>
+        void ApplyLiquid(ref Vec3 probe, Vec3 previousPosition, float liquidHeight, float depth)
+        {
+            float y = probe.Y;
+            switch (CollisionProfile)
+            {
+                case 0:
+                    // A walker: floats at the surface in deep water, wades in shallow water.
+                    if (!(y < liquidHeight + 0.1))
+                    {
+                        LiquidDepth = ClearOfLiquid;
+                        LeaveLiquidIfIn();
+                    }
+                    else if (LiquidDepthThreshold < depth)
+                    {
+                        if (!InLiquid)
+                        {
+                            if (FallingEnabled)
+                            {
+                                OnEnterLiquid();
+                                InLiquid = true;
+                            }
+                        }
+                        else if (!FallingEnabled)
+                        {
+                            OnLeaveLiquid();
+                            InLiquid = false;
+                        }
+
+                        float floatY = (float)(liquidHeight - 0.009999999776482582);
+                        if (y < floatY)
+                            y = floatY;
+                    }
+                    else
+                    {
+                        LeaveLiquidIfIn();
+                        if (!(VerticalVelocity > 0.10000000149011612) && FallingEnabled)
+                            y = (float)(liquidHeight - (double)depth + 0.009999999776482582);
+                    }
+                    break;
+
+                case 1:
+                    // Kept out of deep water: a move into it is undone.
+                    if (y < liquidHeight && LiquidDepthThreshold < depth)
+                    {
+                        probe = previousPosition;
+                        y = probe.Y;
+                    }
+                    break;
+
+                case 2:
+                    // As a walker, but nothing holds it at the surface.
+                    if (!(y < liquidHeight + 0.1))
+                    {
+                        LiquidDepth = ClearOfLiquid;
+                        LeaveLiquidIfIn();
+                    }
+                    else if (!(LiquidDepthThreshold < depth))
+                    {
+                        LeaveLiquidIfIn();
+                    }
+                    else if (!InLiquid)
+                    {
+                        if (FallingEnabled)
+                        {
+                            OnEnterLiquid();
+                            InLiquid = true;
+                        }
+                    }
+                    else if (!FallingEnabled)
+                    {
+                        OnLeaveLiquid();
+                        InLiquid = false;
+                    }
+                    break;
+
+                case 3:
+                    // Kept in the liquid: under the surface, and out of shallows.
+                    if (depth < 0.1)
+                    {
+                        probe = previousPosition;
+                        y = probe.Y;
+                    }
+                    else
+                    {
+                        float under = (float)(liquidHeight - 0.10000000149011612);
+                        if (y > under)
+                            y = under;
+                    }
+                    break;
+
+                case 4:
+                    // The camera stays a little above the surface.
+                    float above = (float)(liquidHeight + 0.25);
+                    if (y < above)
+                        y = above;
+                    break;
+            }
+
+            probe.Y = y;
+            if (y < liquidHeight)
+                LiquidDepth = liquidHeight - y;
+        }
+
+        void LeaveLiquidIfIn()
+        {
+            if (InLiquid)
+            {
+                OnLeaveLiquid();
+                InLiquid = false;
+            }
+        }
+
         protected virtual void OnBeginFall() { }
 
         protected virtual void OnLanded(float height) { }
+
+        /// <summary>The body went into deep liquid while falling is on.</summary>
+        protected virtual void OnEnterLiquid() { }
 
         protected virtual void OnLeaveLiquid() { }
 

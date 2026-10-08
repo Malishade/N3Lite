@@ -18,7 +18,7 @@ namespace N3Lite.Surfaces
     ///   <item>The veto — see <see cref="VetoPosition"/>.</item>
     /// </list>
     /// </summary>
-    public sealed class TilemapSurface : ISurface
+    public sealed class TilemapSurface : ISurface, ILiquidSurface
     {
         /// <summary>
         /// The edge tolerance in the ray/triangle test. The two edge dot products are compared against

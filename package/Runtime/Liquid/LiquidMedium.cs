@@ -33,3 +33,15 @@ namespace N3Lite.Liquids
         }
     }
 }
+
+namespace N3Lite.Surfaces
+{
+    /// <summary>
+    /// A surface whose closest-point query also reports the liquid at the ground point into the body's
+    /// <see cref="Liquids.LiquidMedium"/> (stock's <c>LiquidMediumData_t*</c> argument).
+    /// </summary>
+    public interface ILiquidSurface
+    {
+        void CalculateClosestPoint(Vec3 point, out Vec3 closest, out Vec3 normal, object locality, Liquids.LiquidMedium medium);
+    }
+}

@@ -47,6 +47,12 @@ namespace N3Lite
         /// </summary>
         public event Action StartedMoving;
 
+        /// <summary>The body went into deep liquid — see <see cref="CharVehicleSim.EnteredLiquid"/>.</summary>
+        public event Action EnteredLiquid;
+
+        /// <summary>The body left deep liquid — see <see cref="CharVehicleSim.LeftLiquid"/>.</summary>
+        public event Action LeftLiquid;
+
         /// <summary>
         /// An NPC with nothing to follow is still flagged as moving — see
         /// <see cref="NpcVehicleSim.StopRequested"/>.
@@ -139,6 +145,8 @@ namespace N3Lite
                 previous.JumpLanded -= OnVehicleJumpLanded;
                 previous.Halted -= OnVehicleHalted;
                 previous.StartedMoving -= OnVehicleStartedMoving;
+                previous.EnteredLiquid -= OnVehicleEnteredLiquid;
+                previous.LeftLiquid -= OnVehicleLeftLiquid;
                 if (previous is NpcVehicleSim previousNpc)
                     previousNpc.StopRequested -= OnVehicleStopRequested;
             }
@@ -154,6 +162,8 @@ namespace N3Lite
             _sim.JumpLanded += OnVehicleJumpLanded;
             _sim.Halted += OnVehicleHalted;
             _sim.StartedMoving += OnVehicleStartedMoving;
+            _sim.EnteredLiquid += OnVehicleEnteredLiquid;
+            _sim.LeftLiquid += OnVehicleLeftLiquid;
             if (_sim is NpcVehicleSim npc)
                 npc.StopRequested += OnVehicleStopRequested;
 
@@ -448,6 +458,10 @@ namespace N3Lite
         void OnVehicleHalted() => Halted?.Invoke();
 
         void OnVehicleStartedMoving() => StartedMoving?.Invoke();
+
+        void OnVehicleEnteredLiquid() => EnteredLiquid?.Invoke();
+
+        void OnVehicleLeftLiquid() => LeftLiquid?.Invoke();
 
         void OnVehicleStopRequested() => StopRequested?.Invoke();
     }

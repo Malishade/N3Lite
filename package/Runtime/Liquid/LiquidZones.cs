@@ -88,6 +88,9 @@ namespace N3Lite.Liquids
                 return;
 
             float step = tileSize * zoneSize;
+            // A zone of no size would never step the sweep forward.
+            if (!(step > 0f))
+                return;
             float maxX = (float)(mapWidth * (double)tileSize - MapMargin);
             float maxZ = (float)(mapHeight * (double)tileSize - MapMargin);
 

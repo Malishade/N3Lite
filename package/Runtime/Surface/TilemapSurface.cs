@@ -479,27 +479,72 @@ namespace N3Lite.Surfaces
         /// what lets a floor in the static geometry hold a body up and not just stop a ray.
         ///
         /// <para>
+        /// Then the liquid (<see cref="Liquid"/>): the surface over the <b>result</b>, with the query
+        /// point's own height as the limit and the point's cell as the zone, and a result more than
+        /// 1.2 under it raised to that depth (<see cref="Liquids.LiquidLift"/>). A medium, when given,
+        /// gets the surface height, normal and type. The liquid normal is kept between calls: a miss
+        /// leaves the last one, as the client's one shared copy does.
+        /// </para>
+        ///
+        /// <para>
         /// <b>Not implemented:</b> leaving the output unwritten when the point is outside the cell
-        /// grid, and clamping the result to <c>liquidHeight - 1.2</c>. There is no liquid yet, and this
-        /// always writes a result.
+        /// grid; this always writes a result, and only the liquid step is skipped there.
         /// </para>
         /// </summary>
         public void CalculateClosestPoint(Vec3 point, out Vec3 closest, out Vec3 normal, object locality)
+            => CalculateClosestPoint(point, out closest, out normal, locality, null);
+
+        /// <summary>
+        /// <see cref="CalculateClosestPoint(Vec3, out Vec3, out Vec3, object)"/> with the body's liquid
+        /// medium, which the liquid step fills.
+        /// </summary>
+        public void CalculateClosestPoint(Vec3 point, out Vec3 closest, out Vec3 normal, object locality, Liquids.LiquidMedium medium)
         {
             float groundY = GroundHeightAt(point, out normal);
             closest = new Vec3(point.X, groundY, point.Z);
 
             // Below the ground the terrain answers alone; at or above it the child is asked and the
             // HIGHER of the two wins (a tie keeps the terrain).
-            if (Child == null || point.Y < groundY)
+            if (Child != null && !(point.Y < groundY))
+            {
+                Child.CalculateClosestPoint(point, out Vec3 childClosest, out Vec3 childNormal, locality);
+
+                if (childClosest.Y > groundY)
+                {
+                    closest = childClosest;
+                    normal = childNormal;
+                }
+            }
+
+            ApplyLiquid(point, ref closest, ref normal, medium);
+        }
+
+        /// <summary>The playfield's liquid, or null for none.</summary>
+        public Liquids.LiquidZones Liquid { get; set; }
+
+        Vec3 _liquidNormal;
+
+        void ApplyLiquid(Vec3 point, ref Vec3 closest, ref Vec3 normal, Liquids.LiquidMedium medium)
+        {
+            Liquids.LiquidZones liquid = Liquid;
+            if (liquid == null || !(Child is CellSurface cells))
+                return;
+            int cell = cells.GetCellIdFromPos(point);
+            if (cell == -1)
                 return;
 
-            Child.CalculateClosestPoint(point, out Vec3 childClosest, out Vec3 childNormal, locality);
+            Vec3 at = closest;
+            float height = liquid.GetLiquidSurfaceHeight(ref at, out Vec3 hitNormal, out int type, point.Y, cell);
+            if (!hitNormal.IsZero)
+                _liquidNormal = hitNormal;
 
-            if (childClosest.Y > groundY)
+            Liquids.LiquidLift.Apply(height, _liquidNormal, ref closest, ref normal);
+
+            if (medium != null)
             {
-                closest = childClosest;
-                normal = childNormal;
+                medium.Height = height;
+                medium.Normal = _liquidNormal;
+                medium.Type = type;
             }
         }
     }

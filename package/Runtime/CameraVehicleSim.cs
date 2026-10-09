@@ -1,4 +1,5 @@
 using System;
+using N3Lite.Surfaces;
 
 namespace N3Lite
 {
@@ -69,12 +70,16 @@ namespace N3Lite
             Velocity = Vec3.Zero;
             MaxForce = 600f;
             MaxVel = 15f;
-            // Radius stays 0.01: the camera never runs the ground clamp that would reset it, and a
-            // larger radius pushes the occlusion probe out and makes occlusion fire too eagerly.
+            // Radius stays 0.01. Stock's factory sets 0.7 and its ground clamp rewrites +0x4c from the surface
+            // (1000d1f7), which the port's clamp does not model; a larger radius pushes the occlusion probe
+            // out and makes occlusion fire too eagerly.
             SlowingDistance = 15f;
             MaxSubStep = CameraSubStep;     // 0.05
             DisableFalling();
             DisableSurfaceHug();
+            // CameraVehicle_t's ctor (1001d555): the camera's collision profile, a 0.25 step and its own
+            // liquid rule in the ground clamp.
+            CollisionProfile = 4;
         }
 
         // ---- target ---------------------------------------------------------
@@ -84,6 +89,17 @@ namespace N3Lite
         /// first-person camera has none, which is why first person never runs it.
         /// </summary>
         public bool HasSurface = true;
+
+        /// <summary>
+        /// The playfield's surface, which <c>CameraVehicle_t::GetSurface</c> (<c>1001d6cb</c> ->
+        /// <c>DummyVehicle_t::GetSurface</c> <c>100011e0</c>) hands back while surface collision is on — and
+        /// nothing turns it off for the camera. It makes every move of the camera (<c>SetRelPos</c>, the
+        /// steering's sub-steps) go through <c>EnsureSurfaceAlignment</c>: it stops at walls and stays a step
+        /// above the ground. Null leaves the camera free.
+        /// </summary>
+        public ISurface Surface { get; set; }
+
+        protected override ISurface GetSurface() => Surface;
 
         /// <summary>The followed target's world position.</summary>
         public Vec3 TargetPosition;
@@ -136,8 +152,18 @@ namespace N3Lite
         /// </summary>
         public virtual void Forward(float rate) => ZoomRate = rate;
 
-        /// <summary>Queue a zoom of <paramref name="delta"/> metres. Positive zooms in.</summary>
-        public void RequestZoom(float delta) => ZoomPending += delta;
+        /// <summary>
+        /// Queue a zoom of <paramref name="delta"/> metres. Positive zooms in. A turn the other way first
+        /// drops whatever is still pending (the wheel's callback, <c>N3 100200ef</c>: <c>+0x204</c> zeroed when
+        /// its sign and the wheel's differ), so a zoom out that a wall has held up is not paid back by the
+        /// next zoom in.
+        /// </summary>
+        public void RequestZoom(float delta)
+        {
+            if ((ZoomPending < 0f && delta > 0f) || (ZoomPending > 0f && delta < 0f))
+                ZoomPending = 0f;
+            ZoomPending += delta;
+        }
 
         /// <summary>Orbit only re-seats the goal when the camera is slower than this.</summary>
         public const float OrbitResyncSpeed = 0.02f;
@@ -154,8 +180,11 @@ namespace N3Lite
         /// <summary>Above this much remaining, zoom moves proportionally rather than at a fixed rate.</summary>
         public const float ZoomProportionalThreshold = 1f;
 
-        /// <summary>Lets <see cref="UpdateZoom"/> reset the pending zoom from a subclass.</summary>
-        protected void ClearZoomPending() => ZoomPending = 0f;
+        /// <summary>
+        /// Drops the pending zoom: <see cref="UpdateZoom"/> when a zoom ends, and the camera's Run when a
+        /// zoom-in reaches the character (<c>N3 1002286a</c>, <c>+0x204 = 0</c>).
+        /// </summary>
+        public void ClearZoomPending() => ZoomPending = 0f;
 
         /// <summary>Lets a subclass spend down the pending zoom.</summary>
         protected void SpendZoomPending(float amount) => ZoomPending -= amount;
@@ -286,6 +315,22 @@ namespace N3Lite
         /// rotated into world space.
         /// </summary>
         public Vec3 GetLookTargetPos() => TargetPosition + TargetRotation * EyeTargetLocalPos;
+
+        /// <summary>
+        /// <c>CameraVehicle_t::SetEyeTargetLocalPos</c> (<c>N3 1001d5e9</c>, vtable +0x88): stores the
+        /// eye offset, then re-places the camera a ten-thousandth of a metre up or down, the sign
+        /// flipping on every call through one flag shared by all camera vehicles (<c>1005beca</c>:
+        /// clear gives -0.0001, <c>1003e008</c>; set gives +0.0001, <c>1003e00c</c>).
+        /// </summary>
+        public virtual void SetEyeTargetLocalPos(Vec3 eye)
+        {
+            EyeTargetLocalPos = eye;
+            float nudge = s_eyeNudgeUp ? 0.0001f : -0.0001f;
+            SetRelPos(Position + new Vec3(0f, nudge, 0f));
+            s_eyeNudgeUp = !s_eyeNudgeUp;
+        }
+
+        static bool s_eyeNudgeUp;
 
         /// <summary>
         /// Measures how far the camera actually is from what it is looking at and adopts that as the

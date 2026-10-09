@@ -295,13 +295,18 @@ namespace N3Lite
 
             SetRelPos(intended);
 
-            // Zooming out into geometry: put it back and give up rather than shove through.
-            if (!wasPositive && (Position - intended).LengthSquared > 1e-6f)
+            // 10022791..100227e4: still zooming out (the pending zoom as it is now, after this step) and
+            // the surface stopped the camera short of where it was sent (1e-6, 1003e308): put it back and
+            // give up — without the follow-distance and heading updates below.
+            if (ZoomPending < 0f && (Position - intended).LengthSquared > 1e-6f)
             {
                 SetRelPos(before);
                 ClearZoomPending();
+                return;
             }
 
+            // 100227e9: CameraVehicle_t::Update (1001e54f, the follow distance from where the camera is,
+            // at least 0.9), then ForcedUpdate(false).
             ResyncFollowDistance();
             ForcedUpdate(false);
         }
@@ -345,5 +350,18 @@ namespace N3Lite
         /// </summary>
         public override void ForcedUpdate(bool recalcDistance)
             => UpdateHeadingToPos(Position, recalcDistance);
+
+        /// <summary>
+        /// <c>CameraVehicleFixedThird_t::SetEyeTargetLocalPos</c> (<c>N3 1001f085</c>): stores the eye
+        /// offset and runs the surface alignment from where the camera already is
+        /// (<c>EnsureSurfaceAlignment(+0x58, false)</c>), without the base class's nudge. Its last call,
+        /// <c>Vehicle_t::UpdateListeners</c>, re-files the vehicle with its locality listeners, which
+        /// this sim has none of.
+        /// </summary>
+        public override void SetEyeTargetLocalPos(Vec3 eye)
+        {
+            EyeTargetLocalPos = eye;
+            EnsureSurfaceAlignment(Position, false);
+        }
     }
 }

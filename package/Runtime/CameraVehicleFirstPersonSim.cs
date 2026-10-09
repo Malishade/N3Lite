@@ -56,6 +56,23 @@ namespace N3Lite
         }
 
         /// <summary>
+        /// <c>GetBackPush</c> (<c>N3 1001ed07</c>, <c>+0x1fc</c>): the eye offset's z as it was last set.
+        /// </summary>
+        public float BackPush { get; private set; }
+
+        /// <summary>
+        /// <c>CameraVehicleFirstPerson_t::SetEyeTargetLocalPos</c> (<c>N3 1001ed86</c>): stores the eye
+        /// offset, keeps its z as <see cref="BackPush"/>, and puts the camera at the new eye
+        /// (<c>SetRelPosRot(GetLookTargetPos(), ...)</c>).
+        /// </summary>
+        public override void SetEyeTargetLocalPos(Vec3 eye)
+        {
+            EyeTargetLocalPos = eye;
+            BackPush = eye.Z;
+            PlaceAtEye();
+        }
+
+        /// <summary>
         /// The reference forward taken through the mouse angles and then the character's rotation.
         /// </summary>
         public override bool VetoForward(out Vec3 forward)
@@ -73,6 +90,9 @@ namespace N3Lite
 
         /// <summary>First person has no surface, so no occlusion solve.</summary>
         public override void ForcedUpdate(bool recalcDistance) { }
+
+        /// <summary><c>CameraVehicleFirstPerson_t::GetSurface</c> (<c>10007572</c>): none, so no surface alignment.</summary>
+        protected override Surfaces.ISurface GetSurface() => null;
 
         /// <summary>
         /// The driver still ticks the vehicle, but with nothing to steer the only thing that

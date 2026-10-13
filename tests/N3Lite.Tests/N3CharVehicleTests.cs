@@ -158,7 +158,7 @@ namespace N3Lite.Tests
         }
 
         [Fact]
-        public void FlyingTurnsGravityOffAndLandingBackOn()
+        public void FlyingTurnsGravityOffAndLeavingItLeavesGravityAlone()
         {
             var body = Body();
             MovementProfile flying = Running;
@@ -168,7 +168,61 @@ namespace N3Lite.Tests
             Assert.False(body.Vehicle.FallingEnabled);
 
             body.SetProfile(Running);
-            Assert.True(body.Vehicle.FallingEnabled);
+            Assert.False(body.Vehicle.FallingEnabled);
+        }
+
+        [Fact]
+        public void FlyingOrientationPitchesTheBodyAlongItsVelocity()
+        {
+            var body = Body();
+            MovementProfile flying = Running;
+            flying.Flying = true;
+            body.SetProfile(flying);
+            body.Vehicle.SetOrientationMode(4);
+            body.Position = new Vec3(100f, 20f, 100f);
+
+            body.SetInputs(MovementFlags.Forward);
+            Run(body, 1f);
+
+            // Level flight: the up stays world up and the body faces its (horizontal) velocity.
+            Vec3 up = body.Vehicle.OrientationUp;
+            Assert.Equal(1f, up.Y, 4);
+            Vec3 facing = body.Vehicle.BodyRotation * Vec3.ReferenceForward;
+            Assert.Equal(1f, facing.Z, 3);
+        }
+
+        [Fact]
+        public void TheFlyingUpIsWorldUpLessItsPartAlongTheVelocity()
+        {
+            var sim = new CharVehicleSim { Surface = new TilemapSurface(new Flat()) };
+            sim.SetOrientationMode(4);
+            sim.DisableSurfaceHug();
+            sim.SetVel(new Vec3(0f, 3f, 4f));
+            sim.Position = new Vec3(0f, 50f, 0f);
+            sim.Run(0.01f);
+
+            // forward (0, 0.6, 0.8): up = (0,1,0) - 0.6 * forward = (0, 0.64, -0.48), normalised.
+            Assert.Equal(0f, sim.OrientationUp.X, 4);
+            Assert.Equal(0.8f, sim.OrientationUp.Y, 3);
+            Assert.Equal(-0.6f, sim.OrientationUp.Z, 3);
+
+            Vec3 facing = sim.BodyRotation * Vec3.ReferenceForward;
+            Assert.Equal(0.6f, facing.Y, 3);
+            Assert.Equal(0.8f, facing.Z, 3);
+        }
+
+        [Fact]
+        public void HeadingOnlyKeepsTheBodyLevel()
+        {
+            var sim = new CharVehicleSim { Surface = new TilemapSurface(new Flat()) };
+            sim.UseGravityNormal();
+            sim.SetVel(new Vec3(0f, 3f, 4f));
+            sim.Position = new Vec3(0f, 50f, 0f);
+            sim.Run(0.01f);
+
+            Vec3 facing = sim.BodyRotation * Vec3.ReferenceForward;
+            Assert.Equal(0f, facing.Y, 4);
+            Assert.Equal(1f, facing.Z, 4);
         }
 
         [Fact]

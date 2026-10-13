@@ -65,6 +65,13 @@ namespace N3Lite
         /// <summary>Keyboard turn rate while standing, radians per second.</summary>
         public float TurnRateStopped = 3.5f;
 
+        /// <summary>
+        /// True: the turn flags set the turn rate (<see cref="TurnRateMoving"/>,
+        /// <see cref="TurnRateStopped"/>) whenever the flags are applied. False: the flags leave the
+        /// rate alone, and the owner sets it through <see cref="CharVehicleSim.SetTurnRate"/>.
+        /// </summary>
+        public bool TurnRateFromFlags = true;
+
         public N3CharVehicle(bool isNpc = false, float mass = DefaultMass, float radius = DefaultRadius)
         {
             _mass = mass;
@@ -175,7 +182,7 @@ namespace N3Lite
             _sim.UseSurfaceNormal();
 
             _reversing = false;
-            ApplyProfileToSim(wasFlying: false);
+            ApplyProfileToSim();
 
             if (previous != null)
             {
@@ -288,6 +295,9 @@ namespace N3Lite
                 strafe -= 1f;
             _sim.SetStrafe(strafe);
 
+            if (!TurnRateFromFlags)
+                return;
+
             float turn = 0f;
             if ((_flags & MovementFlags.TurnRight) != 0)
                 turn += 1f;
@@ -310,21 +320,18 @@ namespace N3Lite
                 ClearPath();
             }
 
-            bool wasFlying = _profile.Flying;
             _profile = profile;
-            ApplyProfileToSim(wasFlying);
+            ApplyProfileToSim();
             ApplyFlagsToAxes();
         }
 
-        void ApplyProfileToSim(bool wasFlying)
+        void ApplyProfileToSim()
         {
             _sim.DriveLocked = !_profile.CanDrive;
             ApplySpeeds();
 
             if (_profile.Flying)
                 _sim.DisableFalling();
-            else if (wasFlying)
-                _sim.EnableFalling();
         }
 
         void ApplySpeeds()

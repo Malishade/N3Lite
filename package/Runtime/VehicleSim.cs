@@ -138,8 +138,9 @@ namespace N3Lite
         public bool RelaxSlopeGate;
 
         /// <summary>
-        /// How the orientation update turns the body: 0 heading only, 1 aligned to the surface normal
-        /// (characters), 3 the camera's through its vetoes. 2 is not implemented.
+        /// How the orientation update turns the body: 0 heading only, the body level; 1 aligned to the
+        /// surface normal (characters); 3 the camera's through its vetoes; 4 flying, pitched along the
+        /// velocity. 2 and 3 are not implemented here.
         /// </summary>
         public int OrientationMode;
 
@@ -147,6 +148,17 @@ namespace N3Lite
 
         /// <summary>Orientation mode 1.</summary>
         public void UseSurfaceNormal() => OrientationMode = 1;
+
+        /// <summary>Orientation mode 0.</summary>
+        public void UseGravityNormal() => OrientationMode = 0;
+
+        /// <summary>Sets <see cref="OrientationMode"/> and returns the one it replaced.</summary>
+        public int SetOrientationMode(int mode)
+        {
+            int previous = OrientationMode;
+            OrientationMode = mode;
+            return previous;
+        }
 
         public Vec3 Position;
 
@@ -769,9 +781,20 @@ namespace N3Lite
         /// velocity scales the drive force by the speed below 1 m/s, which made a start from rest
         /// (backpedalling most of all) ramp up far too slowly.
         /// </para>
+        ///
+        /// <para>
+        /// Modes 0 and 4 are <see cref="UpdateHeadingOnly"/> and <see cref="UpdateFlyingOrientation"/>;
+        /// the others leave the body as it is and return false.
+        /// </para>
         /// </summary>
         protected bool UpdateOrientation(Vec3 surfaceNormal)
         {
+            if (OrientationMode == 0)
+                return UpdateHeadingOnly();
+
+            if (OrientationMode == 4)
+                return UpdateFlyingOrientation();
+
             if (OrientationMode != 1)
                 return false;
 
@@ -794,6 +817,104 @@ namespace N3Lite
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Orientation mode 0: the body turned to the heading alone and kept level — forward is the
+        /// velocity while moving and the cached forward while stopped, as in mode 1, but flattened
+        /// (<see cref="LevelRotation"/>) and never tilted to the ground. Backing up faces the negated
+        /// forward, except at rest, where the cached forward already is the way the body faces.
+        ///
+        /// <para>
+        /// Returns true going forward and <b>false</b> backing up: only the forward branch keeps the
+        /// rotation helper's answer.
+        /// </para>
+        /// </summary>
+        bool UpdateHeadingOnly()
+        {
+            Vec3 forward = Speed == 0f ? GetBodyForward() : Velocity;
+
+            if (Direction >= 0)
+            {
+                BodyRotation = LevelRotation(ref forward);
+                CacheBodyForward(forward);
+                SavedRotation = BodyRotation;
+                return true;
+            }
+
+            Vec3 back = Speed == 0f ? forward : -forward;
+            BodyRotation = LevelRotation(ref back);
+            CacheBodyForward(back);
+            SavedRotation = LevelRotation(ref forward);
+            return false;
+        }
+
+        /// <summary>
+        /// The level rotation for <paramref name="forward"/>, leaving its working in it: Y zeroed,
+        /// normalised, and <c>(0, 0, 1)</c> when nothing is left; the up is world up.
+        /// </summary>
+        static Quat LevelRotation(ref Vec3 forward)
+        {
+            forward.Y = 0f;
+            if (Quat.NormaliseInPlace(ref forward) == 0f)
+                forward = Vec3.ReferenceForward;
+
+            return Quat.FromBasis(forward, Vec3.ReferenceUp);
+        }
+
+        /// <summary>
+        /// Orientation mode 4, the flying one: the body looks along its velocity, climb and dive
+        /// included, with <see cref="OrientationUp"/> rebuilt from it by <see cref="FlyingUp"/>. The
+        /// ground's normal plays no part. Forward is the velocity scaled to unit length while moving
+        /// and the cached forward while stopped. Backing up faces the negated forward, except at rest.
+        /// Always returns true.
+        /// </summary>
+        bool UpdateFlyingOrientation()
+        {
+            Vec3 forward;
+            if (Speed == 0f)
+            {
+                forward = GetBodyForward();
+            }
+            else
+            {
+                float scale = 1f / (float)Math.Sqrt(Velocity.LengthSquared);
+                forward = Velocity * scale;
+            }
+
+            if (Direction >= 0)
+            {
+                FlyingUp(forward, ref OrientationUp);
+                BodyRotation = Quat.FromBasis(forward, OrientationUp);
+                CacheBodyForward(forward);
+                SavedRotation = BodyRotation;
+                return true;
+            }
+
+            Vec3 back = Speed == 0f ? forward : -forward;
+            FlyingUp(forward, ref OrientationUp);
+            BodyRotation = Quat.FromBasis(back, OrientationUp);
+            CacheBodyForward(back);
+            SavedRotation = Quat.FromBasis(forward, OrientationUp);
+            return true;
+        }
+
+        /// <summary>
+        /// World up with its part along <paramref name="forward"/> taken out, normalised: the up of a
+        /// body pitched to <paramref name="forward"/>, which must be unit length. A zero forward leaves
+        /// world up; a forward straight up or down leaves nothing, and the up becomes <c>(0, 0, 1)</c>.
+        /// </summary>
+        static void FlyingUp(Vec3 forward, ref Vec3 up)
+        {
+            up = Vec3.ReferenceUp;
+            if (forward.X == 0f && forward.Y == 0f && forward.Z == 0f)
+                return;
+
+            float along = forward.Y * up.Y + forward.X * up.X + forward.Z * up.Z;
+            up -= forward * along;
+
+            if (Quat.NormaliseInPlace(ref up) == 0f)
+                up = Vec3.ReferenceForward;
         }
 
         /// <summary>

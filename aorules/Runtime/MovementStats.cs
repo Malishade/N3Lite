@@ -23,6 +23,18 @@ namespace N3Lite.AORules
         /// </summary>
         public int Features;
 
+        /// <summary>
+        /// Stat 197, the vehicle's orientation mode (see <see cref="CharMovementRules.OrientationMode"/>
+        /// and <see cref="CharMovement.LeaveFly"/>). 0 keeps the body level, 1 tilts it to the ground.
+        /// </summary>
+        public int OrientationMode;
+
+        /// <summary>Stat 267, the turn speed; see <see cref="CharMovementRules.TurnRate"/>. 0 is stock's default.</summary>
+        public int TurnSpeed;
+
+        /// <summary>Stat 662, MechData. Non-zero refuses the jump; see <see cref="CharMovementRules.DropsControl"/>.</summary>
+        public int MechData;
+
         /// <summary>Stat 360, in percent. Zero or less reads as 100.</summary>
         public int Scale;
 

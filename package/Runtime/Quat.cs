@@ -96,7 +96,7 @@ namespace N3Lite
         /// with. Between 1e-8 and 1e-4 it normalises twice; at or below 1e-8 it zeroes the vector and
         /// returns 0.
         /// </summary>
-        static float NormaliseInPlace(ref Vec3 v)
+        internal static float NormaliseInPlace(ref Vec3 v)
         {
             float length = (float)Math.Sqrt(v.LengthSquared);
 
@@ -127,7 +127,7 @@ namespace N3Lite
         /// revolution) does it fall back to the full matrix conversion, with the rows right, up and
         /// forward.
         /// </summary>
-        static Quat FromBasis(Vec3 forward, Vec3 up)
+        internal static Quat FromBasis(Vec3 forward, Vec3 up)
         {
             Vec3 right = Vec3.Cross(up, forward);
 

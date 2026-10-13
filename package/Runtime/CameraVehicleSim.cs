@@ -61,6 +61,12 @@ namespace N3Lite
         // ---- factory settings ---------------------------------------------------
 
         /// <summary>
+        /// CameraVehicle_t's ctor (1001d482): orientation mode 3, the camera's own, which the base
+        /// orientation update leaves alone.
+        /// </summary>
+        public CameraVehicleSim() => OrientationMode = 3;
+
+        /// <summary>
         /// The values the camera is built with: mass 20 — not the vehicle default of 50 — and falling
         /// and surface hug both off, so the camera has no gravity and is free to move vertically.
         /// </summary>

@@ -9,9 +9,9 @@ namespace N3Lite.AORules
     /// height from stats.
     ///
     /// <para>
-    /// The state is the network's <c>MovementState</c> number. Only some numbers have names here: 7
-    /// is Fly, and 1, 8 and 9 refuse forward drive. The names behind the others are not known, so it
-    /// stays an <c>int</c>.
+    /// The state is the network's <c>MovementState</c> number. Only some numbers have names here: 2,
+    /// 3 and 4 are what switching to walk, run and swim set, 7 is Fly, and 1, 8 and 9 refuse forward
+    /// drive. The names behind the others are not known, so it stays an <c>int</c>.
     /// </para>
     /// </summary>
     public static class CharMovementRules
@@ -19,6 +19,7 @@ namespace N3Lite.AORules
         public const int StateRooted = 1;
         public const int StateWalk = 2;
         public const int StateRun = 3;
+        public const int StateSwim = 4;
         public const int StateFly = 7;
         public const int StateSit = 8;
 
@@ -145,7 +146,70 @@ namespace N3Lite.AORules
         /// <summary>Whether an NPC with these stat-224 features may follow its path or target.</summary>
         public static bool CanFollow(int features) => (features & FeatureCanFollow) != 0;
 
+        /// <summary>
+        /// A keyboard turn's rate, radians per second, negative to the left. With a turn speed (stat
+        /// 267) of 0 it is 3.5 standing and 1.5 driving; otherwise it is <c>stat / 11000</c> standing and
+        /// half that driving. Standing means the drive axis is idle, not that the body is at rest.
+        /// </summary>
+        public static float TurnRate(int turnSpeedStat, bool left, bool standing)
+        {
+            if (turnSpeedStat == 0)
+            {
+                float rate = standing ? 3.5f : 1.5f;
+                return left ? -rate : rate;
+            }
+
+            float r = (float)(turnSpeedStat / 11000.0);
+            if (left)
+                r = -r;
+            return standing ? r : (float)(r * 0.5);
+        }
+
+        /// <summary>
+        /// The character's own controls are dropped before the status sees them, beyond what the mode
+        /// refuses (<see cref="CharMovementStatus.Accepts"/>): no jump while flying or while MechData
+        /// (stat 662) is set, and no switch to sneak while sitting.
+        /// </summary>
+        public static bool DropsControl(int mode, int action, int mechData)
+        {
+            const int JumpStart = 0xf;
+            const int SwitchToSneak = 0x1c;
+
+            if (action == JumpStart && (mode == StateFly || mechData != 0))
+                return true;
+            return mode == StateSit && action == SwitchToSneak;
+        }
+
         /// <summary>The ceiling clamp keeps twice the body scale clear above the position.</summary>
         public static float BodyHeight(float bodyScale) => bodyScale + bodyScale;
+
+        // ---- flying ----------------------------------------------------------
+
+        /// <summary>The vertical axis while elevating up, m/s along world up.</summary>
+        public const float ElevateUpSpeed = 3f;
+
+        /// <summary>
+        /// The vertical axis once elevating up stops: a flying body sinks slowly rather than hovering.
+        /// </summary>
+        public const float ElevateStopSpeed = -0.8f;
+
+        /// <summary>How far switching to fly lifts the body, m.</summary>
+        public const float FlyStartLift = 0.5f;
+
+        /// <summary>How far leaving fly lifts the body before it falls again, m.</summary>
+        public const float FlyLeaveLift = 0.1f;
+
+        /// <summary>
+        /// A character's vehicle orientation mode from stat 197: the stat as it is, except that 2 is
+        /// taken as 1. 0 keeps the body level, 1 tilts it to the ground. Leaving fly takes the stat
+        /// as it is, 2 included.
+        /// </summary>
+        public static int OrientationMode(int stat) => stat == 2 ? 1 : stat;
+
+        /// <summary>The bit flying sets in the character's Flags stat (stat 0).</summary>
+        public const int FlagFlying = 0x20000000;
+
+        /// <summary>The vehicle's orientation mode while flying: the body pitched along its velocity.</summary>
+        public const int FlyOrientationMode = 4;
     }
 }

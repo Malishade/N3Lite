@@ -119,6 +119,33 @@ namespace N3Lite.Tests
                     $"rise {rise} (normal.y {ny:F3}) is not walkable but the body climbed to y={sim.Position.Y}");
         }
 
+        [Theory]
+        [InlineData(0.5f, true)]
+        [InlineData(1.7f, true)]
+        [InlineData(1.9f, false)]
+        [InlineData(4.0f, false)]
+        [InlineData(20.0f, false)]
+        public void ALevelBodyClimbsTheSameSlopes(float rise, bool shouldClimb)
+        {
+            var sim = Walker(new Ramp(rise, startX: 25), new Vec3(20.5f, 0.01f, 20.5f));
+            sim.UseGravityNormal();
+            sim.SetForwardDrive(1f);
+            sim.BodyRotation = Quat.FromAxisAngle(Vec3.ReferenceUp, (float)(Math.PI / 2.0));
+
+            float highest = sim.Position.Y;
+            for (int i = 0; i < 600; i++)
+            {
+                sim.Run(1f / 60f);
+                if (sim.Position.Y > highest)
+                    highest = sim.Position.Y;
+            }
+
+            if (shouldClimb)
+                Assert.True(sim.Position.Y > 4f, $"rise {rise}: the level body only reached y={sim.Position.Y}");
+            else
+                Assert.True(highest < 0.05f, $"rise {rise}: the level body climbed to y={highest}");
+        }
+
         [Fact]
         public void TheSurfaceNormalFromARayIsUnitLength()
         {

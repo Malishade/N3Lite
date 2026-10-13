@@ -31,7 +31,10 @@ namespace N3Lite
         /// </summary>
         public bool AcceptsInput;
 
-        /// <summary>True turns gravity off.</summary>
+        /// <summary>
+        /// True turns gravity off, every time the profile is applied. A profile without it leaves
+        /// gravity as it is: turning it back on is part of leaving flight, which is the game's.
+        /// </summary>
         public bool Flying;
 
         /// <summary>5 m/s forward, 3 back, 2.5 strafing (1.5 backing up); free to move and jump.</summary>
